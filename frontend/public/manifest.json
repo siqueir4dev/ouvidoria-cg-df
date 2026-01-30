@@ -1,0 +1,22 @@
+{
+    "name": "Participa DF Mobile",
+    "short_name": "ParticipaDF",
+    "description": "Aplicativo oficial da Ouvidoria do Distrito Federal para registro de manifestações.",
+    "start_url": "/",
+    "display": "standalone",
+    "background_color": "#ffffff",
+    "theme_color": "#0f172a",
+    "orientation": "portrait",
+    "icons": [
+        {
+            "src": "/vite.svg",
+            "sizes": "192x192",
+            "type": "image/svg+xml"
+        },
+        {
+            "src": "/vite.svg",
+            "sizes": "512x512",
+            "type": "image/svg+xml"
+        }
+    ]
+}
