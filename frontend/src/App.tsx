@@ -21,7 +21,80 @@ const SuccessPageWrapper = () => {
   return <SuccessPage protocol={protocol || ''} onBack={() => navigate('/')} />;
 };
 
+import { useEffect } from 'react';
+import { getPendingManifestations, deleteManifestation } from './services/offlineStorage';
+
 function App() {
+
+  useEffect(() => {
+    const syncOfflineData = async () => {
+      try {
+        if (!navigator.onLine) return;
+
+        const pending = await getPendingManifestations();
+        if (pending.length === 0) return;
+
+        console.log(`Syncing ${pending.length} offline manifestations...`);
+        let syncedCount = 0;
+
+        for (const item of pending) {
+          try {
+            const formData = new FormData();
+            formData.append('text', item.text);
+            formData.append('type', item.type);
+            formData.append('isAnonymous', String(item.isAnonymous));
+
+            // Re-attach stored blobs if they were successfully saved
+            // Note: DB storage for blobs is experimental in this MVP, might be missing if browser cleared it.
+            if (item.images && item.images.length > 0) {
+              item.images.forEach(img => formData.append('files', img));
+            }
+            if (item.video) formData.append('files', item.video);
+            if (item.audio) formData.append('files', item.audio, 'record.webm');
+
+            // If we had name/cpf stored (which we decided to skip for now in form but good to handle if expanded)
+            // formData.append('name', item.name || ''); 
+            // formData.append('cpf', item.cpf || '');
+
+            const response = await fetch('http://localhost:3000/api/v1/manifestations', {
+              method: 'POST',
+              body: formData
+            });
+
+            if (response.ok) {
+              const data = await response.json();
+              await deleteManifestation(item.id!);
+              syncedCount++;
+
+              // Add to local history so user sees it in "Consultar"
+              const history = JSON.parse(localStorage.getItem('manifestationHeaderHistory') || '[]');
+              history.unshift({ protocol: data.protocol, date: new Date().toISOString(), type: item.type });
+              localStorage.setItem('manifestationHeaderHistory', JSON.stringify(history.slice(0, 10)));
+            }
+          } catch (err) {
+            console.error('Failed to sync item:', item.id, err);
+          }
+        }
+
+        if (syncedCount > 0) {
+          alert(`${syncedCount} manifestação(ões) salva(s) offline foi(ram) enviada(s) com sucesso!`);
+        }
+      } catch (error) {
+        console.error('Error during offline sync:', error);
+      }
+    };
+
+    // Try to sync on mount if online
+    syncOfflineData();
+
+    // Listen for online event
+    window.addEventListener('online', syncOfflineData);
+
+    return () => {
+      window.removeEventListener('online', syncOfflineData);
+    };
+  }, []);
+
   return (
     <AccessibilityProvider>
       <BrowserRouter>

@@ -173,6 +173,4 @@ ngrok http 3000
 
 Sinta-se à vontade para abrir *Issues* ou enviar *Pull Requests* com melhorias.
 
-## 📄 Licença
 
-Este projeto é distribuído sob a licença MIT.
