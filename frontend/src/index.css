@@ -71,3 +71,25 @@ body.reading-mode button,
 body.reading-mode a {
   font-size: 1.1rem;
 }
+
+/* VLibras Positioning Override */
+/* VLibras Positioning Override */
+.vp-enabled {
+  bottom: 0px !important;
+  right: 0px !important;
+  top: auto !important;
+  left: auto !important;
+}
+
+[vw] [vw-access-button] {
+  bottom: 20px !important;
+  right: 20px !important;
+  margin-bottom: 0 !important;
+  width: 40px !important;
+  height: 40px !important;
+  z-index: 10000 !important;
+}
+
+.vlibras-widget {
+  z-index: 9999 !important;
+}

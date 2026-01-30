@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { Menu, X, ExternalLink, Home, FileText } from 'lucide-react';
+import { Menu, X, ExternalLink, Home, FileText, Search } from 'lucide-react';
+import { Link } from 'react-router-dom';
 
 
 const Navbar: React.FC = () => {
@@ -36,12 +37,15 @@ const Navbar: React.FC = () => {
                     <div className="space-y-2">
                         <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Navegação</h3>
 
-                        <a href="#" className="flex items-center gap-3 p-2 rounded-lg text-gray-700 dark:text-gray-200 hover:bg-blue-50 dark:hover:bg-gray-700 transition-colors">
+                        <Link to="/" onClick={() => setIsOpen(false)} className="flex items-center gap-3 p-2 rounded-lg text-gray-700 dark:text-gray-200 hover:bg-blue-50 dark:hover:bg-gray-700 transition-colors">
                             <Home className="w-5 h-5" /> Início
-                        </a>
-                        <a href="#form-heading" onClick={() => setIsOpen(false)} className="flex items-center gap-3 p-2 rounded-lg text-gray-700 dark:text-gray-200 hover:bg-blue-50 dark:hover:bg-gray-700 transition-colors">
+                        </Link>
+                        <Link to="/#manifest-form" onClick={() => setIsOpen(false)} className="flex items-center gap-3 p-2 rounded-lg text-gray-700 dark:text-gray-200 hover:bg-blue-50 dark:hover:bg-gray-700 transition-colors">
                             <FileText className="w-5 h-5" /> Nova Manifestação
-                        </a>
+                        </Link>
+                        <Link to="/protocolos" onClick={() => setIsOpen(false)} className="flex items-center gap-3 p-2 rounded-lg text-gray-700 dark:text-gray-200 hover:bg-blue-50 dark:hover:bg-gray-700 transition-colors">
+                            <Search className="w-5 h-5" /> Consultar Protocolos
+                        </Link>
                     </div>
 
                     <div className="border-t border-gray-100 dark:border-gray-700 pt-4">

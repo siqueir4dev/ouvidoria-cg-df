@@ -1,24 +1,34 @@
-import React, { useState } from 'react';
-import { Lock, User, AlertCircle, ArrowRight, Loader2 } from 'lucide-react';
+import React, { useState, useRef } from 'react';
+import { Lock, User, AlertCircle, ArrowRight, Loader2, Eye, EyeOff } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import ReCAPTCHA from 'react-google-recaptcha';
 
 const AdminLogin: React.FC = () => {
     const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
+    const [showPassword, setShowPassword] = useState(false);
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
+    const recaptchaRef = useRef<ReCAPTCHA>(null);
     const navigate = useNavigate();
 
     const handleLogin = async (e: React.FormEvent) => {
         e.preventDefault();
         setError('');
+
+        const token = recaptchaRef.current?.getValue();
+        if (!token) {
+            setError('Por favor, complete o desafio reCAPTCHA.');
+            return;
+        }
+
         setLoading(true);
 
         try {
             const response = await fetch('http://localhost:3000/api/v1/auth/login', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ username, password })
+                body: JSON.stringify({ username, password, recaptchaToken: token })
             });
 
             const data = await response.json();
@@ -29,9 +39,11 @@ const AdminLogin: React.FC = () => {
                 navigate('/admin/dashboard');
             } else {
                 setError(data.error || 'Credenciais inválidas');
+                recaptchaRef.current?.reset();
             }
         } catch (err) {
             setError('Erro ao conectar com o servidor');
+            recaptchaRef.current?.reset();
         } finally {
             setLoading(false);
         }
@@ -80,12 +92,31 @@ const AdminLogin: React.FC = () => {
                         <div className="relative">
                             <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
                             <input
-                                type="password"
+                                type={showPassword ? "text" : "password"}
                                 value={password}
                                 onChange={(e) => setPassword(e.target.value)}
-                                className="w-full pl-10 pr-4 py-3 border border-gray-300 dark:border-gray-600 rounded-xl bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all outline-none"
+                                className="w-full pl-10 pr-12 py-3 border border-gray-300 dark:border-gray-600 rounded-xl bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all outline-none"
                                 placeholder="••••••••"
                                 required
+                            />
+                            <button
+                                type="button"
+                                onClick={() => setShowPassword(!showPassword)}
+                                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors p-1"
+                                aria-label={showPassword ? "Ocultar senha" : "Mostrar senha"}
+                            >
+                                {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                            </button>
+                        </div>
+                    </div>
+
+                    <div className="w-full flex justify-center overflow-hidden">
+                        <div className="transform scale-[0.77] sm:scale-[0.85] md:scale-100 origin-center" style={{ maxWidth: '100%' }}>
+                            <ReCAPTCHA
+                                ref={recaptchaRef}
+                                sitekey={import.meta.env.VITE_RECAPTCHA_SITE_KEY || "6Lf7KFssAAAAAKEk7NkR2_XoUzenBRH_ljhLh0Py"}
+                                theme="light"
+                                size="normal"
                             />
                         </div>
                     </div>
@@ -107,7 +138,7 @@ const AdminLogin: React.FC = () => {
                 </form>
 
                 <div className="mt-8 text-center text-xs text-gray-400">
-                    <p>Protected by ReCAPTCHA and Secure Auth</p>
+                    <p>Protected by reCAPTCHA</p>
                     <p className="mt-1">Participa DF &copy; 2024</p>
                 </div>
             </div>

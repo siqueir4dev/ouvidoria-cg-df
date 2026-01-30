@@ -19,6 +19,10 @@ const ManifestationList: React.FC = () => {
     const [totalPages, setTotalPages] = useState(1);
     const [filterStatus, setFilterStatus] = useState('');
 
+    // Modal State
+    const [modalOpen, setModalOpen] = useState(false);
+    const [selectedAction, setSelectedAction] = useState<{ id: number, status: string, title: string } | null>(null);
+
     const fetchManifestations = async () => {
         setLoading(true);
         const token = localStorage.getItem('adminToken');
@@ -43,25 +47,34 @@ const ManifestationList: React.FC = () => {
         fetchManifestations();
     }, [page, filterStatus]);
 
-    const updateStatus = async (id: number, newStatus: string) => {
-        if (!confirm(`Confirmar mudança de status para: ${newStatus}?`)) return;
+    const initiateAction = (id: number, status: string, title: string) => {
+        setSelectedAction({ id, status, title });
+        setModalOpen(true);
+    };
+
+    const confirmAction = async () => {
+        if (!selectedAction) return;
 
         const token = localStorage.getItem('adminToken');
         try {
-            const response = await fetch(`http://localhost:3000/api/v1/admin/manifestations/${id}/status`, {
+            const response = await fetch(`http://localhost:3000/api/v1/admin/manifestations/${selectedAction.id}/status`, {
                 method: 'PATCH',
                 headers: {
                     'Content-Type': 'application/json',
                     Authorization: `Bearer ${token}`
                 },
-                body: JSON.stringify({ status: newStatus })
+                body: JSON.stringify({ status: selectedAction.status })
             });
 
             if (response.ok) {
                 fetchManifestations(); // Refresh
+                setModalOpen(false);
+                setSelectedAction(null);
+            } else {
+                alert('Erro ao atualizar status'); // Fallback for API error
             }
         } catch (error) {
-            alert('Erro ao atualizar status');
+            alert('Erro de conexão');
         }
     };
 
@@ -86,7 +99,50 @@ const ManifestationList: React.FC = () => {
     };
 
     return (
-        <div className="space-y-6">
+        <div className="space-y-6 relative">
+            {/* Action Confirmation Modal */}
+            {modalOpen && selectedAction && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-fade-in">
+                    <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-sm w-full p-6 animate-scale-in border border-gray-200 dark:border-gray-700">
+                        <div className="flex flex-col items-center text-center gap-4">
+                            <div className={`p-4 rounded-full ${selectedAction.status === 'resolved' ? 'bg-green-100 text-green-600' :
+                                selectedAction.status === 'archived' ? 'bg-gray-100 text-gray-600' :
+                                    'bg-blue-100 text-blue-600'
+                                }`}>
+                                {selectedAction.status === 'resolved' ? <CheckCircle className="w-8 h-8" /> :
+                                    selectedAction.status === 'archived' ? <Archive className="w-8 h-8" /> :
+                                        <Clock className="w-8 h-8" />}
+                            </div>
+
+                            <div>
+                                <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">{selectedAction.title}</h3>
+                                <p className="text-gray-500 dark:text-gray-400 text-sm">
+                                    Tem certeza que deseja atualizar o status desta manifestação?
+                                </p>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-3 w-full mt-2">
+                                <button
+                                    onClick={() => setModalOpen(false)}
+                                    className="px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 font-medium transition-colors"
+                                >
+                                    Cancelar
+                                </button>
+                                <button
+                                    onClick={confirmAction}
+                                    className={`px-4 py-2 rounded-lg text-white font-bold transition-transform active:scale-95 ${selectedAction.status === 'resolved' ? 'bg-green-600 hover:bg-green-700' :
+                                        selectedAction.status === 'archived' ? 'bg-gray-600 hover:bg-gray-700' :
+                                            'bg-blue-600 hover:bg-blue-700'
+                                        }`}
+                                >
+                                    Confirmar
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             <div className="flex flex-col sm:flex-row justify-between items-center gap-4 bg-white dark:bg-gray-800 p-4 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm">
                 <h2 className="text-xl font-bold text-gray-800 dark:text-white">Gestão de Manifestações</h2>
 
@@ -127,59 +183,61 @@ const ManifestationList: React.FC = () => {
                                         <Loader2 className="w-8 h-8 animate-spin mx-auto text-blue-600" />
                                     </td>
                                 </tr>
-                            ) : manifestations.length === 0 ? (
-                                <tr>
-                                    <td colSpan={7} className="p-8 text-center text-gray-400">
-                                        Nenhuma manifestação encontrada.
-                                    </td>
-                                </tr>
-                            ) : (
-                                manifestations.map((m) => (
-                                    <tr key={m.id} className="hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
-                                        <td className="p-4 font-mono text-xs">{m.protocol}</td>
-                                        <td className="p-4 font-medium">{m.type}</td>
-                                        <td className="p-4 truncate max-w-xs" title={m.text}>{m.text}</td>
-                                        <td className="p-4">
-                                            {m.name ? (
-                                                <div className="flex flex-col">
-                                                    <span className="font-medium">{m.name}</span>
-                                                    <span className="text-xs text-gray-400">{m.cpf}</span>
-                                                </div>
-                                            ) : (
-                                                <span className="italic opacity-50">Anônimo</span>
-                                            )}
-                                        </td>
-                                        <td className="p-4 text-xs">{new Date(m.created_at).toLocaleDateString('pt-BR')}</td>
-                                        <td className="p-4 text-center">{getStatusBadge(m.status)}</td>
-                                        <td className="p-4 text-right">
-                                            <div className="flex justify-end gap-1">
-                                                {/* Simulating Actions - In real app use a Dropdown */}
-                                                <button
-                                                    title="Marcar como Em Análise"
-                                                    onClick={() => updateStatus(m.id, 'in_analysis')}
-                                                    className="p-1 hover:bg-blue-100 text-blue-600 rounded"
-                                                >
-                                                    <Clock className="w-4 h-4" />
-                                                </button>
-                                                <button
-                                                    title="Marcar como Resolvido"
-                                                    onClick={() => updateStatus(m.id, 'resolved')}
-                                                    className="p-1 hover:bg-green-100 text-green-600 rounded"
-                                                >
-                                                    <CheckCircle className="w-4 h-4" />
-                                                </button>
-                                                <button
-                                                    title="Arquivar"
-                                                    onClick={() => updateStatus(m.id, 'archived')}
-                                                    className="p-1 hover:bg-gray-200 text-gray-600 rounded"
-                                                >
-                                                    <Archive className="w-4 h-4" />
-                                                </button>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                ))
-                            )}
+                            )
+                                : (
+                                    Array.isArray(manifestations) && manifestations.length > 0 ? (
+                                        manifestations.map((m) => (
+                                            <tr key={m.id} className="hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+                                                <td className="p-4 font-mono text-xs">{m.protocol}</td>
+                                                <td className="p-4 font-medium">{m.type}</td>
+                                                <td className="p-4 truncate max-w-xs" title={m.text}>{m.text}</td>
+                                                <td className="p-4">
+                                                    {m.name ? (
+                                                        <div className="flex flex-col">
+                                                            <span className="font-medium inline-block max-w-[120px] truncate" title={m.name}>{m.name}</span>
+                                                            <span className="text-xs text-gray-400">{m.cpf}</span>
+                                                        </div>
+                                                    ) : (
+                                                        <span className="italic opacity-50">Anônimo</span>
+                                                    )}
+                                                </td>
+                                                <td className="p-4 text-xs">{new Date(m.created_at).toLocaleDateString('pt-BR')}</td>
+                                                <td className="p-4 text-center">{getStatusBadge(m.status)}</td>
+                                                <td className="p-4 text-right">
+                                                    <div className="flex justify-end gap-1">
+                                                        <button
+                                                            title="Marcar como Em Análise"
+                                                            onClick={() => initiateAction(m.id, 'in_analysis', 'Iniciar Análise')}
+                                                            className="p-2 hover:bg-blue-100 text-blue-600 rounded-lg transition-colors"
+                                                        >
+                                                            <Clock className="w-4 h-4" />
+                                                        </button>
+                                                        <button
+                                                            title="Marcar como Resolvido"
+                                                            onClick={() => initiateAction(m.id, 'resolved', 'Resolver Manifestação')}
+                                                            className="p-2 hover:bg-green-100 text-green-600 rounded-lg transition-colors"
+                                                        >
+                                                            <CheckCircle className="w-4 h-4" />
+                                                        </button>
+                                                        <button
+                                                            title="Arquivar"
+                                                            onClick={() => initiateAction(m.id, 'archived', 'Arquivar Manifestação')}
+                                                            className="p-2 hover:bg-gray-200 text-gray-600 rounded-lg transition-colors"
+                                                        >
+                                                            <Archive className="w-4 h-4" />
+                                                        </button>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        ))
+                                    ) : (
+                                        <tr>
+                                            <td colSpan={7} className="p-8 text-center text-gray-400">
+                                                Nenhuma manifestação encontrada.
+                                            </td>
+                                        </tr>
+                                    )
+                                )}
                         </tbody>
                     </table>
                 </div>

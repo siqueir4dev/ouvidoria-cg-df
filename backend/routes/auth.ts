@@ -4,7 +4,20 @@ import jwt from 'jsonwebtoken';
 import pool from '../db';
 import rateLimit from '@fastify/rate-limit';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'super_secret_jwt_key_change_me_in_prod';
+const JWT_SECRET = process.env.JWT_SECRET || 'fallback_secret_dev_only';
+const RECAPTCHA_SECRET = process.env.RECAPTCHA_SECRET_KEY;
+
+const loginSchema = {
+    body: {
+        type: 'object',
+        required: ['username', 'password', 'recaptchaToken'],
+        properties: {
+            username: { type: 'string' },
+            password: { type: 'string' },
+            recaptchaToken: { type: 'string' }
+        }
+    }
+};
 
 export default async function authRoutes(fastify: FastifyInstance) {
 
@@ -15,26 +28,37 @@ export default async function authRoutes(fastify: FastifyInstance) {
         errorResponseBuilder: () => ({ error: 'Muitas tentativas de login. Tente novamente em 1 minuto.' })
     });
 
-    fastify.post('/login', async (request, reply) => {
-        const { username, password } = request.body as any;
+    fastify.post('/login', { schema: loginSchema }, async (request, reply) => {
+        // @ts-ignore
+        const { username, password, recaptchaToken } = request.body;
 
-        if (!username || !password) {
-            return reply.status(400).send({ error: 'Usuário e senha são obrigatórios.' });
+        // Verify reCAPTCHA
+        try {
+            const verifyUrl = `https://www.google.com/recaptcha/api/siteverify?secret=${RECAPTCHA_SECRET}&response=${recaptchaToken}`;
+            const captchaRes = await fetch(verifyUrl, { method: 'POST' });
+            const captchaData = await captchaRes.json();
+
+            if (!captchaData.success) {
+                return reply.status(400).send({ error: 'Falha na verificação do reCAPTCHA' });
+            }
+        } catch (e) {
+            console.error('reCAPTCHA Error:', e);
+            // In dev we might want to bypass or warn, but for secure Prod we fail
+            return reply.status(500).send({ error: 'Erro ao verificar reCAPTCHA' });
         }
 
         try {
             const [rows] = await pool.query('SELECT * FROM admins WHERE username = ?', [username]);
-            const admins = rows as any[];
+            // @ts-ignore
+            const admin = rows[0];
 
-            if (admins.length === 0) {
-                // Use dummy comparison to prevent timing attacks
-                await bcrypt.compare(password, '$2b$10$abcdefghijklmnopqrstuvwxyz123456');
+            if (!admin) {
+                // Dummy hash comparison to prevent timing attacks
+                await bcrypt.compare('dummy', '$2b$10$dummyhashdummyhashdummyhashdummyhashdummyhash');
                 return reply.status(401).send({ error: 'Credenciais inválidas.' });
             }
 
-            const admin = admins[0];
             const match = await bcrypt.compare(password, admin.password_hash);
-
             if (!match) {
                 return reply.status(401).send({ error: 'Credenciais inválidas.' });
             }
@@ -46,8 +70,6 @@ export default async function authRoutes(fastify: FastifyInstance) {
                 { expiresIn: '8h' }
             );
 
-            // Return success with token
-            // In a more strict setup we would set an HttpOnly cookie here too
             return reply.send({
                 message: 'Login realizado com sucesso',
                 token,
@@ -59,7 +81,7 @@ export default async function authRoutes(fastify: FastifyInstance) {
             });
 
         } catch (error) {
-            console.error('Login Error:', error);
+            request.log.error(error);
             return reply.status(500).send({ error: 'Erro interno no servidor.' });
         }
     });

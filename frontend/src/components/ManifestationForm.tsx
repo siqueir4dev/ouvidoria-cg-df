@@ -1,7 +1,7 @@
 import React, { useState, type ChangeEvent, type FormEvent } from 'react';
 import { useMediaRecorder } from '../hooks/useMediaRecorder';
 
-import { Mic, Square, X, Image as ImageIcon, Video, Send, Shield, User, Sparkles, Bot, Check, ArrowRight, WifiOff } from 'lucide-react';
+import { Mic, Square, X, Image as ImageIcon, Video, Send, Shield, User, Sparkles, Bot, Check, ArrowRight, WifiOff, FileText } from 'lucide-react';
 import { saveOfflineManifestation } from '../services/offlineStorage';
 
 interface ManifestationFormProps {
@@ -27,6 +27,9 @@ const ManifestationForm: React.FC<ManifestationFormProps> = ({ onSuccess }) => {
     // IZA AI State
     const [analyzing, setAnalyzing] = useState(false);
     const [izaSuggestion, setIzaSuggestion] = useState<{ suggestedType: string, reasoning: string } | null>(null);
+
+    // Terms Agreement State
+    const [agreedToTerms, setAgreedToTerms] = useState(false);
 
     // Monitor Online Status
     React.useEffect(() => {
@@ -209,6 +212,11 @@ const ManifestationForm: React.FC<ManifestationFormProps> = ({ onSuccess }) => {
 
         if (text.length < 20) {
             alert('A descrição deve ter no mínimo 20 caracteres para que possamos entender melhor sua solicitação.');
+            return;
+        }
+
+        if (!agreedToTerms) {
+            alert('Você precisa concordar com os Termos de Uso e Política de Privacidade para enviar sua manifestação.');
             return;
         }
 
@@ -523,6 +531,51 @@ const ManifestationForm: React.FC<ManifestationFormProps> = ({ onSuccess }) => {
                             </div>
                         )}
                     </div>
+                </div>
+
+                {/* Terms of Service Checkbox */}
+                <div className="border border-gray-200 dark:border-gray-700 p-4 rounded-lg bg-gray-50 dark:bg-gray-900">
+                    <label className="flex items-start gap-3 cursor-pointer group">
+                        <div className="relative mt-0.5">
+                            <input
+                                type="checkbox"
+                                checked={agreedToTerms}
+                                onChange={(e) => setAgreedToTerms(e.target.checked)}
+                                className="sr-only peer"
+                            />
+                            <div className={`w-5 h-5 border-2 rounded flex items-center justify-center transition-all ${agreedToTerms
+                                    ? 'bg-blue-600 border-blue-600'
+                                    : 'border-gray-300 dark:border-gray-600 group-hover:border-blue-400'
+                                }`}>
+                                {agreedToTerms && <Check className="w-3 h-3 text-white" />}
+                            </div>
+                        </div>
+                        <div className="flex-1">
+                            <span className="text-sm text-gray-700 dark:text-gray-300">
+                                Li e concordo com os{' '}
+                                <a
+                                    href="#termos"
+                                    onClick={(e) => { e.preventDefault(); alert('Termos de Uso: Esta plataforma é um projeto demonstrativo. Suas manifestações serão armazenadas para fins de demonstração. Não possui vínculo oficial com órgãos públicos.'); }}
+                                    className="text-blue-600 hover:text-blue-700 underline font-medium"
+                                >
+                                    Termos de Uso
+                                </a>
+                                {' '}e a{' '}
+                                <a
+                                    href="#privacidade"
+                                    onClick={(e) => { e.preventDefault(); alert('Política de Privacidade: Seus dados pessoais são tratados com confidencialidade. Manifestações anônimas não armazenam dados de identificação.'); }}
+                                    className="text-blue-600 hover:text-blue-700 underline font-medium"
+                                >
+                                    Política de Privacidade
+                                </a>
+                                {' '}da plataforma.
+                            </span>
+                            <div className="flex items-center gap-1 mt-1 text-xs text-gray-500 dark:text-gray-400">
+                                <FileText className="w-3 h-3" />
+                                <span>Campo obrigatório para envio</span>
+                            </div>
+                        </div>
+                    </label>
                 </div>
 
                 <button

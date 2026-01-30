@@ -58,12 +58,12 @@ const DashboardHome: React.FC = () => {
 
     if (!stats) return <div>Erro ao carregar dados.</div>;
 
-    // Data Preparation
-    const typeLabels = stats.byType.map((t: any) => t.type);
-    const typeData = stats.byType.map((t: any) => t.count);
+    // Data Preparation - Safety Checks
+    const typeLabels = stats.byType ? stats.byType.map((t: any) => t.type) : [];
+    const typeData = stats.byType ? stats.byType.map((t: any) => t.count) : [];
 
-    const trendLabels = stats.trend.map((t: any) => new Date(t.date).toLocaleDateString('pt-BR'));
-    const trendData = stats.trend.map((t: any) => t.count);
+    const trendLabels = stats.trend ? stats.trend.map((t: any) => new Date(t.date).toLocaleDateString('pt-BR')) : [];
+    const trendData = stats.trend ? stats.trend.map((t: any) => t.count) : [];
 
     const doughnutData = {
         labels: typeLabels,

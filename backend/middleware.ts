@@ -1,7 +1,7 @@
 import { FastifyRequest, FastifyReply } from 'fastify';
 import jwt from 'jsonwebtoken';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'super_secret_jwt_key_change_me_in_prod';
+const JWT_SECRET = process.env.JWT_SECRET || 'fallback_secret_dev_only';
 
 export interface AuthRequest extends FastifyRequest {
     user?: {

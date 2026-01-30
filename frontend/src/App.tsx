@@ -1,15 +1,24 @@
-import React from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+
+import { BrowserRouter, Routes, Route, Navigate, useParams, useNavigate } from 'react-router-dom';
 import Navbar from './components/Navbar';
 import AccessibilityMenu from './components/AccessibilityMenu';
 import ManifestationForm from './components/ManifestationForm';
 import SuccessPage from './components/SuccessPage';
 import AdminLogin from './pages/AdminLogin';
+import ProtocolsPage from './pages/ProtocolsPage';
 import DashboardLayout from './layouts/DashboardLayout';
 import DashboardHome from './pages/dashboard/DashboardHome';
 import ManifestationList from './pages/dashboard/ManifestationList';
 import VLibras from './components/VLibras';
 import { AccessibilityProvider } from './contexts/AccessibilityContext';
+
+// Helper Wrapper to extract params and pass to SuccessPage
+const SuccessPageWrapper = () => {
+  const { protocol } = useParams<{ protocol: string }>();
+  const navigate = useNavigate();
+  // Pass empty string if undefined to satisfy type, or handle error
+  return <SuccessPage protocol={protocol || ''} onBack={() => navigate('/')} />;
+};
 
 function App() {
   return (
@@ -33,6 +42,9 @@ function App() {
                       <p className="text-lg text-blue-600 dark:text-blue-300 font-medium max-w-2xl mx-auto">
                         Sua voz transforma nossa cidade. Manifeste-se de forma segura, transparente e inclusiva.
                       </p>
+                      <p className="text-sm text-gray-500 font-medium bg-gray-100 dark:bg-gray-800 py-1 px-3 rounded-full inline-block mt-2 border border-gray-200 dark:border-gray-700">
+                        ⚠️ Este site não possui vínculo oficial com a administração pública.
+                      </p>
                     </div>
 
                     <div className="grid gap-8">
@@ -44,7 +56,8 @@ function App() {
                 </main>
               </>
             } />
-            <Route path="/success/:protocol" element={<SuccessPage />} />
+            <Route path="/protocolos" element={<ProtocolsPage />} />
+            <Route path="/success/:protocol" element={<SuccessPageWrapper />} />
 
             {/* Admin Routes */}
             <Route path="/admin/login" element={<AdminLogin />} />

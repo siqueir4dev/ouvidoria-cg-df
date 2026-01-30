@@ -1,21 +1,8 @@
-import React, { useEffect } from 'react';
+import React from 'react';
 
 const VLibras: React.FC = () => {
-    useEffect(() => {
-        const script = document.createElement('script');
-        script.src = 'https://vlibras.gov.br/app/vlibras-plugin.js';
-        script.async = true;
-        script.onload = () => {
-            // @ts-ignore
-            new window.VLibras.Widget('https://vlibras.gov.br/app');
-        };
-        document.body.appendChild(script);
-
-        return () => {
-            document.body.removeChild(script);
-        };
-    }, []);
-
+    // The script is loaded in index.html to ensure proper initialization
+    // We just render the required container structure here
     return (
         // @ts-ignore
         <div vw="true" className="enabled">
