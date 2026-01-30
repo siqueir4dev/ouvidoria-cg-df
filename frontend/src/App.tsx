@@ -10,6 +10,7 @@ import ProtocolsPage from './pages/ProtocolsPage';
 import DashboardLayout from './layouts/DashboardLayout';
 import DashboardHome from './pages/dashboard/DashboardHome';
 import ManifestationList from './pages/dashboard/ManifestationList';
+import NotFound from './pages/NotFound';
 import { AccessibilityProvider } from './contexts/AccessibilityContext';
 
 // Helper Wrapper to extract params and pass to SuccessPage
@@ -78,6 +79,9 @@ function App() {
               <Route path="dashboard" element={<DashboardHome />} />
               <Route path="manifestations" element={<ManifestationList />} />
             </Route>
+
+            {/* 404 Route */}
+            <Route path="*" element={<NotFound />} />
 
           </Routes>
         </div>

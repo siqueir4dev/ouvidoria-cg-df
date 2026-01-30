@@ -34,7 +34,7 @@ O **Participa DF Mobile** é uma aplicação Web Progressiva (PWA) desenvolvida 
 
 A plataforma utiliza Inteligência Artificial para auxiliar na triagem e classificação das manifestações, garantindo maior precisão no encaminhamento das demandas.
 
-*   **Modelo Utilizado**: `gemini-1.5-flash` (Google DeepMind)
+*   **Modelo Utilizado**: `gemini-3-flash-preview` (Google DeepMind)
 *   **Biblioteca**: `@google/generative-ai`
 *   **Propósito**: Análise semântica do texto da manifestação para sugerir a tipologia correta (Denúncia, Reclamação, Elogio, Sugestão ou Informação).
 *   **Funcionamento**:

@@ -1,6 +1,8 @@
 import { FastifyInstance } from 'fastify';
 import pool from '../db';
 import { authenticateToken } from '../middleware';
+import fs from 'fs';
+import path from 'path';
 
 export default async function adminRoutes(fastify: FastifyInstance) {
 
@@ -64,6 +66,99 @@ export default async function adminRoutes(fastify: FastifyInstance) {
         } catch (error) {
             console.error(error);
             return reply.status(500).send({ error: 'Erro ao listar manifestações.' });
+        }
+    });
+
+    // Get Single Manifestation with Attachments
+    fastify.get('/manifestations/:id', async (request, reply) => {
+        const { id } = request.params as any;
+
+        try {
+            const [rows] = await pool.query('SELECT * FROM manifestations WHERE id = ?', [id]);
+            // @ts-ignore
+            if (rows.length === 0) {
+                return reply.status(404).send({ error: 'Manifestação não encontrada.' });
+            }
+
+            // @ts-ignore
+            const manifestation = rows[0];
+
+            // Get Attachments
+            const [attachments] = await pool.query('SELECT * FROM attachments WHERE manifestation_id = ?', [id]);
+
+            // Get History/Responses
+            const [responses] = await pool.query('SELECT * FROM manifestation_responses WHERE manifestation_id = ? ORDER BY created_at ASC', [id]);
+
+            return {
+                ...manifestation,
+                // @ts-ignore
+                attachments: attachments,
+                // @ts-ignore
+                responses: responses
+            };
+        } catch (error) {
+            console.error(error);
+            return reply.status(500).send({ error: 'Erro ao buscar detalhes da manifestação.' });
+        }
+    });
+
+    // Serve Attachment File (Secure)
+    fastify.get('/attachments/:id/file', async (request, reply) => {
+        const { id } = request.params as any;
+
+        try {
+            const [rows] = await pool.query('SELECT * FROM attachments WHERE id = ?', [id]);
+            // @ts-ignore
+            if (rows.length === 0) {
+                return reply.status(404).send({ error: 'Anexo não encontrado.' });
+            }
+
+            // @ts-ignore
+            const attachment = rows[0];
+            const uploadDir = path.join(__dirname, '../../uploads');
+            const filePath = path.join(uploadDir, attachment.file_path);
+
+            if (!fs.existsSync(filePath)) {
+                return reply.status(404).send({ error: 'Arquivo físico não encontrado.' });
+            }
+
+            const stream = fs.createReadStream(filePath);
+            const type = attachment.file_type || 'application/octet-stream';
+
+            reply.header('Content-Type', type);
+            // inline means browser tries to view it, attachment means download
+            // We use inline so images can be shown
+            reply.header('Content-Disposition', `inline; filename="${attachment.original_name}"`);
+
+            return reply.send(stream);
+
+        } catch (error) {
+            console.error(error);
+            return reply.status(500).send({ error: 'Erro ao ler arquivo.' });
+        }
+    });
+
+    // Send Admin Reply
+    fastify.post('/manifestations/:id/reply', async (request, reply) => {
+        const { id } = request.params as any;
+        const { message, status } = request.body as any; // Optional status update
+
+        if (!message) return reply.status(400).send({ error: 'Mensagem obrigatória.' });
+
+        try {
+            await pool.query(
+                'INSERT INTO manifestation_responses (manifestation_id, message, is_admin) VALUES (?, ?, true)',
+                [id, message]
+            );
+
+            if (status) {
+                await pool.query('UPDATE manifestations SET status = ? WHERE id = ?', [status, id]);
+            }
+
+            return { message: 'Resposta enviada com sucesso.' };
+        } catch (error) {
+            console.error(error);
+            return reply.status(500).send({ error: 'Erro ao enviar resposta.' });
         }
     });
 

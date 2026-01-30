@@ -142,9 +142,16 @@ export async function manifestRoutes(fastify: FastifyInstance) {
                 [manifestation.id]
             );
 
+            // Fetch Responses
+            const [responses] = await pool.query<RowDataPacket[]>(
+                'SELECT message, created_at, is_admin FROM manifestation_responses WHERE manifestation_id = ? ORDER BY created_at ASC',
+                [manifestation.id]
+            );
+
             return {
                 ...manifestation,
-                attachments
+                attachments,
+                responses
             };
 
         } catch (error) {

@@ -16,6 +16,11 @@ interface ManifestationDetails {
     is_anonymous: boolean;
     name?: string;
     created_at: string;
+    responses?: {
+        message: string;
+        created_at: string;
+        is_admin: boolean | number;
+    }[];
 }
 
 const ProtocolViewer: React.FC = () => {
@@ -70,8 +75,10 @@ const ProtocolViewer: React.FC = () => {
     const getStatusLabel = (status: string) => {
         const labels: Record<string, { text: string, color: string }> = {
             'received': { text: 'Recebida', color: 'bg-blue-100 text-blue-700' },
+            'in_analysis': { text: 'Em Análise', color: 'bg-yellow-100 text-yellow-700' }, // Map in_analysis
             'in_progress': { text: 'Em Análise', color: 'bg-yellow-100 text-yellow-700' },
             'resolved': { text: 'Resolvida', color: 'bg-green-100 text-green-700' },
+            'archived': { text: 'Arquivada', color: 'bg-gray-100 text-gray-700' },
             'closed': { text: 'Encerrada', color: 'bg-gray-100 text-gray-700' }
         };
         return labels[status] || { text: status, color: 'bg-gray-100 text-gray-600' };
@@ -172,12 +179,12 @@ const ProtocolViewer: React.FC = () => {
 
             {/* Details Modal */}
             {showDetails && searchResult && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-                    <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-lg w-full overflow-hidden">
-                        <div className="bg-blue-600 p-5 text-white flex items-center justify-between">
+                <div role="dialog" className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+                    <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-lg w-full overflow-hidden flex flex-col max-h-[90vh]">
+                        <div className="bg-blue-600 p-5 text-white flex items-center justify-between sticky top-0">
                             <div>
                                 <h3 className="text-lg font-semibold">Detalhes do Protocolo</h3>
-                                <p className="font-mono text-blue-100">{searchResult.protocol}</p>
+                                <p className="font-mono text-blue-100 uppercase">{searchResult.protocol}</p>
                             </div>
                             <button
                                 onClick={() => setShowDetails(false)}
@@ -186,7 +193,8 @@ const ProtocolViewer: React.FC = () => {
                                 <X className="w-5 h-5" />
                             </button>
                         </div>
-                        <div className="p-6 space-y-4">
+
+                        <div className="p-6 space-y-4 overflow-y-auto">
                             <div className="flex items-center gap-3">
                                 <span className={`px-3 py-1 rounded-full text-sm font-medium ${getStatusLabel(searchResult.status).color}`}>
                                     {getStatusLabel(searchResult.status).text}
@@ -198,7 +206,7 @@ const ProtocolViewer: React.FC = () => {
 
                             <div>
                                 <label className="text-xs text-gray-500 uppercase font-semibold">Descrição</label>
-                                <p className="text-gray-700 dark:text-gray-300 mt-1 bg-gray-50 dark:bg-gray-900 p-3 rounded-lg">
+                                <p className="text-gray-700 dark:text-gray-300 mt-1 bg-gray-50 dark:bg-gray-900 p-3 rounded-lg whitespace-pre-wrap">
                                     {searchResult.text}
                                 </p>
                             </div>
@@ -218,9 +226,38 @@ const ProtocolViewer: React.FC = () => {
                                 </div>
                             </div>
 
+                            {/* Conversation History */}
+                            {searchResult.responses && searchResult.responses.length > 0 && (
+                                <div className="mt-4 pt-4 border-t border-gray-100 dark:border-gray-700">
+                                    <h4 className="text-sm font-bold text-gray-800 dark:text-gray-200 mb-3">Histórico de Atendimento</h4>
+                                    <div className="space-y-3 pr-1">
+                                        {searchResult.responses.map((res, idx) => (
+                                            <div key={idx} className={`flex ${res.is_admin ? 'justify-start' : 'justify-end'}`}>
+                                                <div className={`
+                                                    rounded-2xl p-3 max-w-[90%] shadow-sm border text-sm
+                                                    ${res.is_admin
+                                                        ? 'bg-blue-50 dark:bg-blue-900/20 border-blue-100 dark:border-blue-800 rounded-tl-none mr-auto'
+                                                        : 'bg-gray-100 dark:bg-gray-700 border-gray-200 dark:border-gray-600 rounded-tr-none ml-auto'} 
+                                                `}>
+                                                    <p className={`text-xs mb-1 font-semibold ${res.is_admin ? 'text-blue-600 dark:text-blue-400' : 'text-gray-500'}`}>
+                                                        {res.is_admin ? 'Ouvidoria' : 'Você'}
+                                                    </p>
+                                                    <p className="text-gray-800 dark:text-gray-200 whitespace-pre-wrap">{res.message}</p>
+                                                    <p className="text-[10px] text-gray-400 mt-1 text-right">
+                                                        {new Date(res.created_at).toLocaleString([], { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}
+                                                    </p>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+
+                        <div className="p-4 border-t border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50">
                             <button
                                 onClick={() => setShowDetails(false)}
-                                className="w-full bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 font-semibold py-3 rounded-xl transition-colors mt-4"
+                                className="w-full bg-white dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-600 font-semibold py-3 rounded-xl transition-colors"
                             >
                                 Fechar
                             </button>

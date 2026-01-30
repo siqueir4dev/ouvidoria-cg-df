@@ -53,6 +53,18 @@ export const initDB = async () => {
             );
         `);
 
+        // Responses/History Table
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS manifestation_responses (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                manifestation_id INT NOT NULL,
+                message TEXT NOT NULL,
+                is_admin BOOLEAN DEFAULT TRUE,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (manifestation_id) REFERENCES manifestations(id) ON DELETE CASCADE
+            );
+        `);
+
         console.log('Database and Tables verified.');
 
         // Safe Migration for geo columns
