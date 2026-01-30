@@ -6,9 +6,7 @@ export interface OfflineManifestation {
     id?: number;
     text: string;
     type: string;
-    isAnonymous: boolean;
-    name?: string;
-    cpf?: string;
+    isAnonymous: boolean; // Always true now
     latitude?: number;
     longitude?: number;
     timestamp: number;

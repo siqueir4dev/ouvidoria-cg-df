@@ -1,5 +1,6 @@
 
-import { BrowserRouter, Routes, Route, Navigate, useParams, useNavigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useParams, useNavigate, Link } from 'react-router-dom';
+import { Search } from 'lucide-react';
 import Navbar from './components/Navbar';
 import AccessibilityMenu from './components/AccessibilityMenu';
 import ManifestationForm from './components/ManifestationForm';
@@ -9,7 +10,6 @@ import ProtocolsPage from './pages/ProtocolsPage';
 import DashboardLayout from './layouts/DashboardLayout';
 import DashboardHome from './pages/dashboard/DashboardHome';
 import ManifestationList from './pages/dashboard/ManifestationList';
-import VLibras from './components/VLibras';
 import { AccessibilityProvider } from './contexts/AccessibilityContext';
 
 // Helper Wrapper to extract params and pass to SuccessPage
@@ -25,7 +25,7 @@ function App() {
     <AccessibilityProvider>
       <BrowserRouter>
         <div className="min-h-screen bg-white dark:bg-gray-900 transition-colors duration-200">
-          <VLibras />
+          {/* VLibras is now loaded directly in index.html */}
           <AccessibilityMenu />
 
           <Routes>
@@ -35,6 +35,17 @@ function App() {
                 <Navbar />
                 <main className="container mx-auto px-4 py-8">
                   <div className="max-w-4xl mx-auto">
+                    {/* Consultar Protocolo Button - Top */}
+                    <div className="mb-6">
+                      <Link
+                        to="/protocolos"
+                        className="inline-flex items-center gap-2 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 px-4 py-2 rounded-lg border border-gray-200 dark:border-gray-700 transition-colors font-medium text-sm"
+                      >
+                        <Search className="w-4 h-4" />
+                        Consultar Protocolo
+                      </Link>
+                    </div>
+
                     <div className="text-center mb-10 space-y-2">
                       <h1 className="text-4xl font-extrabold text-blue-900 dark:text-blue-100 tracking-tight">
                         Ouvidoria Participa DF
@@ -43,7 +54,7 @@ function App() {
                         Sua voz transforma nossa cidade. Manifeste-se de forma segura, transparente e inclusiva.
                       </p>
                       <p className="text-sm text-gray-500 font-medium bg-gray-100 dark:bg-gray-800 py-1 px-3 rounded-full inline-block mt-2 border border-gray-200 dark:border-gray-700">
-                        ⚠️ Este site não possui vínculo oficial com a administração pública.
+                        Este site não possui vínculo oficial com a administração pública.
                       </p>
                     </div>
 

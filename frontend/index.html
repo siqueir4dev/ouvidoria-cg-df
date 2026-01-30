@@ -1,19 +1,60 @@
 <!doctype html>
-<html lang="en">
+<html lang="pt-BR">
+
 <meta charset="UTF-8" />
 <link rel="icon" type="image/svg+xml" href="/vite.svg" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Participa DF Mobile</title>
+
+<!-- Primary Meta Tags -->
+<title>Participa DF - Ouvidoria Pública Anônima</title>
+<meta name="title" content="Participa DF - Ouvidoria Pública Anônima">
+<meta name="description"
+  content="Faça denúncias, reclamações e sugestões de forma 100% anônima e segura. Sua voz transforma nossa cidade. Acesse agora.">
+<meta name="keywords"
+  content="Ouvidoria, DF, Brasília, Denúncia Anônima, Reclamação, Governo, Transparência, Participação Social">
+<meta name="author" content="Participa DF">
+<meta name="robots" content="index, follow">
+
+<!-- Open Graph / Facebook -->
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://participadf.com.br/">
+<meta property="og:title" content="Participa DF - Ouvidoria Pública Anônima">
+<meta property="og:description"
+  content="Faça denúncias, reclamações e sugestões de forma 100% anônima e segura. Sua voz transforma nossa cidade. Acesse agora.">
+<meta property="og:image" content="/og-image.png">
+
+<!-- Twitter -->
+<meta property="twitter:card" content="summary_large_image">
+<meta property="twitter:url" content="https://participadf.com.br/">
+<meta property="twitter:title" content="Participa DF - Ouvidoria Pública Anônima">
+<meta property="twitter:description"
+  content="Faça denúncias, reclamações e sugestões de forma 100% anônima e segura. Sua voz transforma nossa cidade. Acesse agora.">
+<meta property="twitter:image" content="/og-image.png">
+
 <link rel="manifest" href="/manifest.json">
 <meta name="theme-color" content="#0f172a">
+<link rel="canonical" href="https://participadf.com.br/">
 </head>
 
 <body>
   <div id="root"></div>
+
+  <!-- VLibras Widget Container -->
+  <div vw class="enabled">
+    <div vw-access-button class="active"></div>
+    <div vw-plugin-wrapper>
+      <div class="vw-plugin-top-wrapper"></div>
+    </div>
+  </div>
+
   <script type="module" src="/src/index.tsx"></script>
   <script src="https://vlibras.gov.br/app/vlibras-plugin.js"></script>
   <script>
-    new window.VLibras.Widget('https://vlibras.gov.br/app');
+    document.addEventListener('DOMContentLoaded', function () {
+      if (window.VLibras) {
+        new window.VLibras.Widget('https://vlibras.gov.br/app');
+      }
+    });
   </script>
 </body>
 

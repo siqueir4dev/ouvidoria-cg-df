@@ -1,7 +1,7 @@
 import React, { useState, type ChangeEvent, type FormEvent } from 'react';
 import { useMediaRecorder } from '../hooks/useMediaRecorder';
 
-import { Mic, Square, X, Image as ImageIcon, Video, Send, Shield, User, Sparkles, Bot, Check, ArrowRight, WifiOff, FileText } from 'lucide-react';
+import { Mic, Square, X, Image as ImageIcon, Video, Send, Shield, Sparkles, Bot, Check, ArrowRight, WifiOff, FileText, Info, AlertTriangle, ChevronDown, ChevronUp, Edit3, Lightbulb } from 'lucide-react';
 import { saveOfflineManifestation } from '../services/offlineStorage';
 
 interface ManifestationFormProps {
@@ -10,19 +10,14 @@ interface ManifestationFormProps {
 
 const ManifestationForm: React.FC<ManifestationFormProps> = ({ onSuccess }) => {
     const [text, setText] = useState('');
-    const [selectedType, setSelectedType] = useState('Reclamação'); // Default
-    const [isAnonymous, setIsAnonymous] = useState(false);
-    const [name, setName] = useState('');
-    const [cpf, setCpf] = useState('');
+    const [selectedType, setSelectedType] = useState('Reclamação');
 
     const [images, setImages] = useState<File[]>([]);
     const [video, setVideo] = useState<File | null>(null);
     const [videoPreview, setVideoPreview] = useState<string | null>(null);
 
-
-    // Geo & Offline State
-
     const [isOnline, setIsOnline] = useState(navigator.onLine);
+    const [showOrientations, setShowOrientations] = useState(true);
 
     // IZA AI State
     const [analyzing, setAnalyzing] = useState(false);
@@ -30,6 +25,10 @@ const ManifestationForm: React.FC<ManifestationFormProps> = ({ onSuccess }) => {
 
     // Terms Agreement State
     const [agreedToTerms, setAgreedToTerms] = useState(false);
+
+    // Terms/Privacy Modals
+    const [showTermsModal, setShowTermsModal] = useState(false);
+    const [showPrivacyModal, setShowPrivacyModal] = useState(false);
 
     // Monitor Online Status
     React.useEffect(() => {
@@ -43,25 +42,7 @@ const ManifestationForm: React.FC<ManifestationFormProps> = ({ onSuccess }) => {
         };
     }, []);
 
-
-
     const manifestationTypes = ['Denúncia', 'Reclamação', 'Sugestão', 'Elogio', 'Informação'];
-
-    const formatCPF = (value: string) => {
-        const numbers = value.replace(/\D/g, '');
-        const limited = numbers.slice(0, 11);
-        return limited
-            .replace(/(\d{3})(\d)/, '$1.$2')
-            .replace(/(\d{3})(\d)/, '$1.$2')
-            .replace(/(\d{3})(\d{1,2})/, '$1-$2')
-            .replace(/(-\d{2})\d+?$/, '$1');
-    };
-
-    const handleCpfChange = (e: ChangeEvent<HTMLInputElement>) => {
-        const rawValue = e.target.value;
-        const formatted = formatCPF(rawValue);
-        setCpf(formatted);
-    };
 
     const {
         isRecording,
@@ -90,8 +71,6 @@ const ManifestationForm: React.FC<ManifestationFormProps> = ({ onSuccess }) => {
         setImages(prev => prev.filter((_, i) => i !== index));
     };
 
-
-
     const createFormData = (analyticsOnly: boolean = false) => {
         const formData = new FormData();
 
@@ -101,17 +80,9 @@ const ManifestationForm: React.FC<ManifestationFormProps> = ({ onSuccess }) => {
         if (analyticsOnly) {
             formData.append('analyzeOnly', 'true');
         } else {
-            formData.append('isAnonymous', String(isAnonymous));
-            if (!isAnonymous) {
-                formData.append('name', name);
-                formData.append('cpf', cpf);
-            }
-
-            // Append Files
+            formData.append('isAnonymous', 'true');
             images.forEach(img => formData.append('files', img));
             if (video) formData.append('files', video);
-
-            // In a real app we'd append the audio blob here
         }
         return formData;
     };
@@ -129,10 +100,8 @@ const ManifestationForm: React.FC<ManifestationFormProps> = ({ onSuccess }) => {
     const sendManifestation = async (finalType: string) => {
         try {
             const formData = createFormData(false);
-            // Override type if changed
             formData.set('type', finalType);
 
-            // Append Audio if exists
             const audioBlob = await getAudioBlob();
             if (audioBlob) {
                 formData.append('files', audioBlob, 'record.webm');
@@ -140,7 +109,6 @@ const ManifestationForm: React.FC<ManifestationFormProps> = ({ onSuccess }) => {
 
             const response = await fetch('http://localhost:3000/api/v1/manifestations', {
                 method: 'POST',
-                // Content-Type header skipped so browser sets boundary
                 body: formData
             });
 
@@ -149,23 +117,18 @@ const ManifestationForm: React.FC<ManifestationFormProps> = ({ onSuccess }) => {
             if (response.ok) {
                 if (onSuccess) onSuccess(data.protocol);
 
-                // Save to Local History
                 const history = JSON.parse(localStorage.getItem('manifestationHeaderHistory') || '[]');
                 history.unshift({ protocol: data.protocol, date: new Date().toISOString(), type: finalType });
-                localStorage.setItem('manifestationHeaderHistory', JSON.stringify(history.slice(0, 10))); // Keep last 10
+                localStorage.setItem('manifestationHeaderHistory', JSON.stringify(history.slice(0, 10)));
 
-                // Reset form
                 setText('');
                 setSelectedType('Reclamação');
                 setIzaSuggestion(null);
-                setIsAnonymous(false);
-                setName('');
-                setCpf('');
                 setImages([]);
                 setVideo(null);
                 setVideoPreview(null);
-                setVideoPreview(null);
                 clearRecording();
+                setAgreedToTerms(false);
             } else {
                 alert('Erro ao enviar manifestação. O servidor respondeu com erro.');
             }
@@ -173,29 +136,18 @@ const ManifestationForm: React.FC<ManifestationFormProps> = ({ onSuccess }) => {
             console.error('Erro de conexão:', error);
             alert('Erro ao conectar com o servidor.');
         }
-    }
-
+    };
 
     const saveOffline = async () => {
         try {
             await saveOfflineManifestation({
                 text,
                 type: selectedType,
-                isAnonymous,
-                name: !isAnonymous ? name : undefined,
-                cpf: !isAnonymous ? cpf : undefined,
-
-                // Files are tricky in IndexedDB for this demo, skipping for now or warned
+                isAnonymous: true,
             });
             alert('Você está offline. Sua manifestação foi salva no dispositivo e será enviada automaticamente quando a conexão retornar.');
-
-            // Reset form
             setText('');
             setSelectedType('Reclamação');
-            setIsAnonymous(false);
-            setName('');
-            setCpf('');
-
         } catch (e) {
             console.error(e);
             alert('Erro ao salvar offline.');
@@ -204,11 +156,6 @@ const ManifestationForm: React.FC<ManifestationFormProps> = ({ onSuccess }) => {
 
     const handleSubmit = async (e: FormEvent) => {
         e.preventDefault();
-
-        if (!isAnonymous && (!name || cpf.length < 14)) {
-            alert('Por favor, preencha o Nome e um CPF válido (11 dígitos).');
-            return;
-        }
 
         if (text.length < 20) {
             alert('A descrição deve ter no mínimo 20 caracteres para que possamos entender melhor sua solicitação.');
@@ -220,19 +167,16 @@ const ManifestationForm: React.FC<ManifestationFormProps> = ({ onSuccess }) => {
             return;
         }
 
-        // Offline Flow
         if (!isOnline) {
             await saveOffline();
             return;
         }
 
-        // Step 1: Analyze with IZA
         setAnalyzing(true);
         try {
             const formData = new FormData();
             formData.append('analyzeOnly', 'true');
             formData.append('text', text);
-            // We still set type in formData even for analysis, but backend might ignore prompt
 
             const response = await fetch('http://localhost:3000/api/v1/manifestations', {
                 method: 'POST',
@@ -244,17 +188,15 @@ const ManifestationForm: React.FC<ManifestationFormProps> = ({ onSuccess }) => {
             const suggested = analysis.suggestedType;
             const matches = suggested.toLowerCase() === selectedType.toLowerCase();
 
-            // If mismatch and reasoning exists, interrupt
             if (analysis.status === 'analysis' && !matches && suggested) {
                 setIzaSuggestion({
                     suggestedType: suggested,
                     reasoning: analysis.reasoning
                 });
                 setAnalyzing(false);
-                return; // Stop submission to show modal
+                return;
             }
 
-            // If matches or error in analysis, proceed to save directly
             await sendManifestation(selectedType);
 
         } catch (e) {
@@ -267,6 +209,144 @@ const ManifestationForm: React.FC<ManifestationFormProps> = ({ onSuccess }) => {
 
     return (
         <div className="space-y-6 relative">
+
+            {/* Terms Modal */}
+            {showTermsModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+                    <div className="bg-white dark:bg-gray-800 rounded-lg shadow-2xl max-w-lg w-full overflow-hidden border border-gray-200 dark:border-gray-700">
+                        <div className="bg-gray-100 dark:bg-gray-900 p-4 flex items-center justify-between border-b border-gray-200 dark:border-gray-700">
+                            <h3 className="font-bold text-gray-800 dark:text-gray-100 flex items-center gap-2">
+                                <FileText className="w-5 h-5" /> Termos de Uso
+                            </h3>
+                            <button onClick={() => setShowTermsModal(false)} className="text-gray-500 hover:text-gray-700 dark:hover:text-gray-300">
+                                <X className="w-5 h-5" />
+                            </button>
+                        </div>
+                        <div className="p-6 max-h-80 overflow-y-auto text-sm text-gray-700 dark:text-gray-300 space-y-4">
+                            <p><strong>1. Natureza do Serviço</strong></p>
+                            <p>Esta plataforma é um projeto demonstrativo e educacional. Não possui vínculo oficial com órgãos públicos do Distrito Federal ou qualquer outra entidade governamental.</p>
+
+                            <p><strong>2. Uso da Plataforma</strong></p>
+                            <p>O usuário concorda em utilizar a plataforma de forma responsável, não enviando conteúdo falso, difamatório ou ilegal.</p>
+
+                            <p><strong>3. Armazenamento de Dados</strong></p>
+                            <p>As manifestações são armazenadas em banco de dados para fins de demonstração. Nenhum dado pessoal é coletado.</p>
+
+                            <p><strong>4. IZA - Assistente Virtual</strong></p>
+                            <p>A IZA utiliza inteligência artificial para sugerir classificações. As sugestões são automáticas e podem não refletir a classificação ideal.</p>
+
+                            <p><strong>5. Responsabilidade</strong></p>
+                            <p>Os desenvolvedores não se responsabilizam pelo uso indevido da plataforma ou por expectativas de resposta oficial.</p>
+                        </div>
+                        <div className="p-4 bg-gray-50 dark:bg-gray-900 border-t border-gray-200 dark:border-gray-700">
+                            <button onClick={() => setShowTermsModal(false)} className="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded-lg font-medium">
+                                Entendi
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Privacy Modal */}
+            {showPrivacyModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+                    <div className="bg-white dark:bg-gray-800 rounded-lg shadow-2xl max-w-lg w-full overflow-hidden border border-gray-200 dark:border-gray-700">
+                        <div className="bg-gray-100 dark:bg-gray-900 p-4 flex items-center justify-between border-b border-gray-200 dark:border-gray-700">
+                            <h3 className="font-bold text-gray-800 dark:text-gray-100 flex items-center gap-2">
+                                <Shield className="w-5 h-5" /> Política de Privacidade
+                            </h3>
+                            <button onClick={() => setShowPrivacyModal(false)} className="text-gray-500 hover:text-gray-700 dark:hover:text-gray-300">
+                                <X className="w-5 h-5" />
+                            </button>
+                        </div>
+                        <div className="p-6 max-h-80 overflow-y-auto text-sm text-gray-700 dark:text-gray-300 space-y-4">
+                            <p><strong>1. Anonimato Total</strong></p>
+                            <p>Todas as manifestações são 100% anônimas. Não solicitamos nem armazenamos: nome, CPF, e-mail, telefone, endereço ou qualquer dado pessoal identificável.</p>
+
+                            <p><strong>2. Dados Coletados</strong></p>
+                            <p>Coletamos apenas: texto da manifestação, tipo selecionado, arquivos anexados (se houver), data/hora do envio.</p>
+
+                            <p><strong>3. Proteção ao Denunciante</strong></p>
+                            <p>Seguindo os princípios da LGPD e do Decreto nº 36.462/2015, garantimos sigilo absoluto. Nenhuma informação pode identificar o autor da manifestação.</p>
+
+                            <p><strong>4. Segurança</strong></p>
+                            <p>Os dados são armazenados em servidor seguro. Não compartilhamos informações com terceiros.</p>
+
+                            <p><strong>5. Arquivos Anexados</strong></p>
+                            <p>Recomendamos remover metadados de fotos/vídeos antes do envio. Evite incluir documentos com seus dados pessoais.</p>
+                        </div>
+                        <div className="p-4 bg-gray-50 dark:bg-gray-900 border-t border-gray-200 dark:border-gray-700">
+                            <button onClick={() => setShowPrivacyModal(false)} className="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded-lg font-medium">
+                                Entendi
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Orientations Section */}
+            <div className="bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden">
+                <button
+                    type="button"
+                    onClick={() => setShowOrientations(!showOrientations)}
+                    className="w-full p-4 flex items-center justify-between text-left hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                >
+                    <div className="flex items-center gap-3">
+                        <div className="bg-gray-600 dark:bg-gray-500 p-2 rounded-lg">
+                            <Info className="w-5 h-5 text-white" />
+                        </div>
+                        <div>
+                            <h3 className="font-bold text-gray-800 dark:text-gray-100">Orientações Importantes</h3>
+                            <p className="text-sm text-gray-500 dark:text-gray-400">Leia antes de fazer seu registro</p>
+                        </div>
+                    </div>
+                    {showOrientations ? <ChevronUp className="w-5 h-5 text-gray-500" /> : <ChevronDown className="w-5 h-5 text-gray-500" />}
+                </button>
+
+                {showOrientations && (
+                    <div className="px-4 pb-4 space-y-4 text-sm text-gray-700 dark:text-gray-300">
+                        {/* Anonymous Info */}
+                        <div className="bg-white dark:bg-gray-900 p-3 rounded-lg border border-gray-200 dark:border-gray-700">
+                            <div className="flex items-center gap-2 mb-2">
+                                <Shield className="w-4 h-4 text-gray-600 dark:text-gray-400" />
+                                <span className="font-bold text-gray-800 dark:text-gray-200">Proteção ao Denunciante</span>
+                            </div>
+                            <p className="text-gray-600 dark:text-gray-400">
+                                Todas as manifestações são tratadas com <strong>sigilo absoluto</strong>. Nenhuma informação pessoal é solicitada ou armazenada.
+                            </p>
+                        </div>
+
+                        {/* Warning */}
+                        <div className="bg-white dark:bg-gray-900 p-3 rounded-lg border border-gray-200 dark:border-gray-700">
+                            <div className="flex items-center gap-2 mb-2">
+                                <AlertTriangle className="w-4 h-4 text-gray-600 dark:text-gray-400" />
+                                <span className="font-bold text-gray-800 dark:text-gray-200">Atenção</span>
+                            </div>
+                            <p className="text-gray-600 dark:text-gray-400">
+                                <strong>Não escreva seus dados pessoais</strong> (nome, CPF, e-mail, endereço, etc.) no texto do seu registro. Isso protege seu sigilo.
+                            </p>
+                        </div>
+
+                        {/* Tips */}
+                        <div className="space-y-2">
+                            <p className="font-semibold text-gray-800 dark:text-gray-200 flex items-center gap-2">
+                                <Edit3 className="w-4 h-4" /> Dicas para um bom registro:
+                            </p>
+                            <ul className="list-disc list-inside space-y-1 text-gray-600 dark:text-gray-400 ml-2">
+                                <li><strong>O quê</strong>: Descreva o que ocorreu ou está ocorrendo</li>
+                                <li><strong>Quem</strong>: Pessoas envolvidas (nomes, apelidos)</li>
+                                <li><strong>Quando</strong>: Data, horário, frequência</li>
+                                <li><strong>Onde</strong>: Local com máximo de detalhes</li>
+                                <li><strong>Como</strong>: Você presenciou ou terceiros relataram?</li>
+                            </ul>
+                        </div>
+
+                        <p className="text-gray-500 dark:text-gray-400 text-xs border-t border-gray-200 dark:border-gray-700 pt-3 flex items-center gap-2">
+                            <Lightbulb className="w-3 h-3" /> Cada registro deve conter apenas <strong>1 assunto</strong>. Para múltiplos assuntos, faça registros separados.
+                        </p>
+                    </div>
+                )}
+            </div>
 
             {/* IZA Intervention Modal */}
             {izaSuggestion && (
@@ -334,67 +414,43 @@ const ManifestationForm: React.FC<ManifestationFormProps> = ({ onSuccess }) => {
                 </div>
             )}
 
-
-
             <form onSubmit={handleSubmit} className="space-y-6" aria-label="Formulário de Manifestação">
 
-                {/* 1. Identification (Anonymous Toggle & User Info) */}
-                <div className="space-y-4">
-                    <div
-                        onClick={() => setIsAnonymous(!isAnonymous)}
-                        className={`flex items-center justify-between p-4 rounded-lg border cursor-pointer transition-colors ${isAnonymous
-                            ? 'bg-blue-50 border-blue-500 dark:bg-blue-900/30 dark:border-blue-400'
-                            : 'bg-gray-50 border-gray-200 dark:bg-gray-800 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-750'
-                            }`}
-                    >
-                        <div className="flex flex-col">
-                            <span className="font-semibold text-gray-900 dark:text-white flex items-center gap-2">
-                                {isAnonymous ? <Shield className="w-5 h-5 text-blue-600" /> : <User className="w-5 h-5 text-gray-500" />}
-                                Identificação
-                            </span>
-                            <span className="text-sm text-gray-500 dark:text-gray-400">
-                                {isAnonymous ? 'Modo Anônimo Ativado' : 'Desejo me identificar'}
-                            </span>
-                        </div>
-
-                        <div className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${isAnonymous ? 'bg-blue-600' : 'bg-gray-300 dark:bg-gray-600'}`}>
-                            <span
-                                className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${isAnonymous ? 'translate-x-6' : 'translate-x-1'}`}
-                            />
-                        </div>
+                {/* Anonymous Badge - Normalized colors */}
+                <div className="bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 p-4 rounded-lg flex items-center gap-3">
+                    <Shield className="w-6 h-6 text-gray-600 dark:text-gray-400" />
+                    <div>
+                        <span className="font-bold text-gray-800 dark:text-gray-200">Registro 100% Anônimo</span>
+                        <p className="text-sm text-gray-500 dark:text-gray-400">Sua identidade é protegida. Nenhum dado pessoal é solicitado.</p>
                     </div>
+                </div>
 
-                    {!isAnonymous && (
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 animate-fade-in-up">
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Nome Completo</label>
-                                <input
-                                    type="text"
-                                    value={name}
-                                    onChange={(e) => setName(e.target.value)}
-                                    placeholder="Seu Nome"
-                                    className="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-800 placeholder-gray-600 dark:placeholder-gray-400"
-                                />
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">CPF</label>
-                                <input
-                                    type="text"
-                                    value={cpf}
-                                    onChange={handleCpfChange}
-                                    placeholder="000.000.000-00"
-                                    maxLength={14}
-                                    inputMode="numeric"
-                                    className="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-800 placeholder-gray-600 dark:placeholder-gray-400"
-                                />
-                            </div>
-                        </div>
-                    )}
+                {/* 1. Text Area - Primary Focus */}
+                <div>
+                    <label htmlFor="manifestation-text" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 flex justify-between">
+                        <span className="flex items-center gap-2">
+                            <FileText className="w-4 h-4" />
+                            1º Passo: Escreva seu relato
+                        </span>
+                        {!isOnline && <span className="text-yellow-600 flex items-center gap-1 text-xs font-bold"><WifiOff className="w-3 h-3" /> Modo Offline</span>}
+                    </label>
+                    <textarea
+                        id="manifestation-text"
+                        rows={6}
+                        className="w-full p-4 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent min-h-[180px] bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 transition-all resize-none shadow-inner text-lg"
+                        placeholder="Descreva com detalhes o que aconteceu, onde, quando e quem estava envolvido..."
+                        value={text}
+                        onChange={(e) => setText(e.target.value)}
+                    ></textarea>
+                    <p className="text-xs text-gray-500 mt-1">Mínimo 20 caracteres • {text.length} digitados</p>
                 </div>
 
                 {/* 2. Type Selection */}
                 <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Classificação</label>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 flex items-center gap-2">
+                        <Sparkles className="w-4 h-4" />
+                        2º Passo: Escolha a classificação (a IZA pode sugerir outra)
+                    </label>
                     <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
                         {manifestationTypes.map(type => (
                             <button
@@ -412,128 +468,119 @@ const ManifestationForm: React.FC<ManifestationFormProps> = ({ onSuccess }) => {
                     </div>
                 </div>
 
-                {/* 3. Text Area */}
+                {/* 3. Attachments */}
                 <div>
-                    <label htmlFor="manifestation-text" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 flex justify-between">
-                        <span>Descrição da Manifestação</span>
-                        {!isOnline && <span className="text-yellow-600 flex items-center gap-1 text-xs font-bold"><WifiOff className="w-3 h-3" /> Modo Offline</span>}
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 flex items-center gap-2">
+                        <ImageIcon className="w-4 h-4" />
+                        3º Passo: Anexar arquivos (opcional)
                     </label>
-                    <textarea
-                        id="manifestation-text"
-                        rows={5}
-                        className="w-full p-4 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent min-h-[150px] bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white placeholder-gray-600 dark:placeholder-gray-400 transition-all resize-none shadow-inner text-lg"
-                        placeholder="Descreva sua manifestação com detalhes..."
-                        value={text}
-                        onChange={(e) => setText(e.target.value)}
-                    ></textarea>
 
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {/* Audio Recording */}
+                        <div className="border border-gray-200 dark:border-gray-700 p-4 rounded-lg bg-white dark:bg-gray-800">
+                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3 flex items-center gap-2">
+                                <Mic className="w-4 h-4" /> Gravar Áudio
+                            </label>
+                            <div className="flex items-center gap-4">
+                                {!isRecording ? (
+                                    <button
+                                        type="button"
+                                        onClick={startRecording}
+                                        className="flex items-center justify-center space-x-2 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 px-4 py-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+                                    >
+                                        <Mic className="w-4 h-4" />
+                                        <span>Gravar</span>
+                                    </button>
+                                ) : (
+                                    <button
+                                        type="button"
+                                        onClick={stopRecording}
+                                        className="flex items-center justify-center space-x-2 bg-gray-800 text-white px-4 py-2 rounded-full hover:bg-gray-700 transition-colors"
+                                    >
+                                        <Square className="w-4 h-4" />
+                                        <span>Parar</span>
+                                    </button>
+                                )}
 
-                </div>
-
-                {/* Audio Recording */}
-                <div className="border border-gray-200 dark:border-gray-700 p-4 rounded-lg">
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">Gravação de Áudio</label>
-                    <div className="flex items-center gap-4">
-                        {!isRecording ? (
-                            <button
-                                type="button"
-                                onClick={startRecording}
-                                className="flex items-center justify-center space-x-2 bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-300 px-4 py-2 rounded-full hover:bg-red-200 dark:hover:bg-red-900/50 transition-colors"
-                            >
-                                <Mic className="w-4 h-4 animate-pulse" />
-                                <span>Gravar Áudio</span>
-                            </button>
-                        ) : (
-                            <button
-                                type="button"
-                                onClick={stopRecording}
-                                className="flex items-center justify-center space-x-2 bg-gray-800 text-white px-4 py-2 rounded-full hover:bg-gray-700 transition-colors"
-                            >
-                                <Square className="w-4 h-4" />
-                                <span>Parar Gravação</span>
-                            </button>
-                        )}
-
-                        {audioUrl && (
-                            <div className="flex items-center gap-2 bg-blue-50 dark:bg-blue-900/20 p-2 rounded-lg">
-                                <audio src={audioUrl} controls className="h-8 w-48" />
-                                <button
-                                    type="button"
-                                    onClick={clearRecording}
-                                    className="text-red-500 hover:text-red-700 p-1 hover:bg-red-50 rounded-full"
-                                    aria-label="Remover áudio"
-                                >
-                                    <X className="w-4 h-4" />
-                                </button>
-                            </div>
-                        )}
-                    </div>
-                </div>
-
-                {/* Attachments */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-
-                    {/* Images */}
-                    <div className="border border-gray-200 dark:border-gray-700 p-4 rounded-lg">
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3 flex items-center gap-2">
-                            <ImageIcon className="w-4 h-4" /> Imagens
-                        </label>
-                        <input
-                            type="file"
-                            accept="image/*"
-                            multiple
-                            onChange={handleImageChange}
-                            className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
-                        />
-                        {images.length > 0 && (
-                            <div className="mt-3 flex flex-wrap gap-2">
-                                {images.map((img, idx) => (
-                                    <div key={idx} className="relative group">
-                                        <img
-                                            src={URL.createObjectURL(img)}
-                                            alt={`Preview ${idx}`}
-                                            className="h-20 w-20 object-cover rounded-md border border-gray-300"
-                                        />
+                                {audioUrl && (
+                                    <div className="flex items-center gap-2 bg-gray-50 dark:bg-gray-900 p-2 rounded-lg">
+                                        <audio src={audioUrl} controls className="h-8 w-32" />
                                         <button
                                             type="button"
-                                            onClick={() => removeImage(idx)}
-                                            className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-sm"
+                                            onClick={clearRecording}
+                                            className="text-gray-500 hover:text-gray-700 p-1 hover:bg-gray-100 rounded-full"
+                                            aria-label="Remover áudio"
                                         >
-                                            <X className="w-3 h-3" />
+                                            <X className="w-4 h-4" />
                                         </button>
                                     </div>
-                                ))}
+                                )}
                             </div>
-                        )}
-                    </div>
+                        </div>
 
-                    {/* Video */}
-                    <div className="border border-gray-200 dark:border-gray-700 p-4 rounded-lg">
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3 flex items-center gap-2">
-                            <Video className="w-4 h-4" /> Vídeo
-                        </label>
-                        <input
-                            type="file"
-                            accept="video/*"
-                            onChange={handleVideoChange}
-                            className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100"
-                        />
-                        {videoPreview && (
-                            <div className="mt-3 relative">
-                                <video src={videoPreview} controls className="w-full max-h-40 rounded-lg bg-black"></video>
-                                <button
-                                    type="button"
-                                    onClick={() => { setVideo(null); setVideoPreview(null); }}
-                                    className="absolute top-2 right-2 bg-red-500 text-white rounded-full p-1 shadow hover:bg-red-600 transition-colors"
-                                >
-                                    <X className="w-4 h-4" />
-                                </button>
-                            </div>
-                        )}
+                        {/* Images */}
+                        <div className="border border-gray-200 dark:border-gray-700 p-4 rounded-lg bg-white dark:bg-gray-800">
+                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3 flex items-center gap-2">
+                                <ImageIcon className="w-4 h-4" /> Imagens
+                            </label>
+                            <input
+                                type="file"
+                                accept="image/*"
+                                multiple
+                                onChange={handleImageChange}
+                                className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-gray-100 file:text-gray-700 hover:file:bg-gray-200"
+                            />
+                            {images.length > 0 && (
+                                <div className="mt-3 flex flex-wrap gap-2">
+                                    {images.map((img, idx) => (
+                                        <div key={idx} className="relative group">
+                                            <img
+                                                src={URL.createObjectURL(img)}
+                                                alt={`Preview ${idx}`}
+                                                className="h-16 w-16 object-cover rounded-md border border-gray-300"
+                                            />
+                                            <button
+                                                type="button"
+                                                onClick={() => removeImage(idx)}
+                                                className="absolute -top-1 -right-1 bg-gray-600 text-white rounded-full w-5 h-5 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-sm"
+                                            >
+                                                <X className="w-3 h-3" />
+                                            </button>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Video */}
+                        <div className="border border-gray-200 dark:border-gray-700 p-4 rounded-lg bg-white dark:bg-gray-800 md:col-span-2">
+                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3 flex items-center gap-2">
+                                <Video className="w-4 h-4" /> Vídeo
+                            </label>
+                            <input
+                                type="file"
+                                accept="video/*"
+                                onChange={handleVideoChange}
+                                className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-gray-100 file:text-gray-700 hover:file:bg-gray-200"
+                            />
+                            {videoPreview && (
+                                <div className="mt-3 relative">
+                                    <video src={videoPreview} controls className="w-full max-h-40 rounded-lg bg-black"></video>
+                                    <button
+                                        type="button"
+                                        onClick={() => { setVideo(null); setVideoPreview(null); }}
+                                        className="absolute top-2 right-2 bg-gray-600 text-white rounded-full p-1 shadow hover:bg-gray-700 transition-colors"
+                                    >
+                                        <X className="w-4 h-4" />
+                                    </button>
+                                </div>
+                            )}
+                        </div>
                     </div>
+                    <p className="text-xs text-gray-500 mt-2">Limite: 25MB por arquivo • Formatos: pdf, png, jpg, jpeg, mp3, mp4</p>
                 </div>
 
-                {/* Terms of Service Checkbox */}
+                {/* 4. Terms of Service Checkbox */}
                 <div className="border border-gray-200 dark:border-gray-700 p-4 rounded-lg bg-gray-50 dark:bg-gray-900">
                     <label className="flex items-start gap-3 cursor-pointer group">
                         <div className="relative mt-0.5">
@@ -544,40 +591,36 @@ const ManifestationForm: React.FC<ManifestationFormProps> = ({ onSuccess }) => {
                                 className="sr-only peer"
                             />
                             <div className={`w-5 h-5 border-2 rounded flex items-center justify-center transition-all ${agreedToTerms
-                                    ? 'bg-blue-600 border-blue-600'
-                                    : 'border-gray-300 dark:border-gray-600 group-hover:border-blue-400'
+                                ? 'bg-blue-600 border-blue-600'
+                                : 'border-gray-300 dark:border-gray-600 group-hover:border-blue-400'
                                 }`}>
                                 {agreedToTerms && <Check className="w-3 h-3 text-white" />}
                             </div>
                         </div>
                         <div className="flex-1">
                             <span className="text-sm text-gray-700 dark:text-gray-300">
-                                Li e concordo com os{' '}
-                                <a
-                                    href="#termos"
-                                    onClick={(e) => { e.preventDefault(); alert('Termos de Uso: Esta plataforma é um projeto demonstrativo. Suas manifestações serão armazenadas para fins de demonstração. Não possui vínculo oficial com órgãos públicos.'); }}
+                                4º Passo: Li e concordo com os{' '}
+                                <button
+                                    type="button"
+                                    onClick={() => setShowTermsModal(true)}
                                     className="text-blue-600 hover:text-blue-700 underline font-medium"
                                 >
                                     Termos de Uso
-                                </a>
+                                </button>
                                 {' '}e a{' '}
-                                <a
-                                    href="#privacidade"
-                                    onClick={(e) => { e.preventDefault(); alert('Política de Privacidade: Seus dados pessoais são tratados com confidencialidade. Manifestações anônimas não armazenam dados de identificação.'); }}
+                                <button
+                                    type="button"
+                                    onClick={() => setShowPrivacyModal(true)}
                                     className="text-blue-600 hover:text-blue-700 underline font-medium"
                                 >
                                     Política de Privacidade
-                                </a>
-                                {' '}da plataforma.
+                                </button>
                             </span>
-                            <div className="flex items-center gap-1 mt-1 text-xs text-gray-500 dark:text-gray-400">
-                                <FileText className="w-3 h-3" />
-                                <span>Campo obrigatório para envio</span>
-                            </div>
                         </div>
                     </label>
                 </div>
 
+                {/* Submit Button */}
                 <button
                     type="submit"
                     disabled={analyzing}
@@ -591,7 +634,7 @@ const ManifestationForm: React.FC<ManifestationFormProps> = ({ onSuccess }) => {
                     ) : (
                         <>
                             <Send className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
-                            Enviar Manifestação
+                            Confirmar e Enviar
                         </>
                     )}
                 </button>

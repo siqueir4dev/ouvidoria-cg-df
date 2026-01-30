@@ -32,9 +32,7 @@ export const initDB = async () => {
                 protocol VARCHAR(20) NOT NULL UNIQUE,
                 text TEXT NOT NULL,
                 type VARCHAR(50) DEFAULT 'manifestation',
-                is_anonymous BOOLEAN DEFAULT FALSE,
-                name VARCHAR(255),
-                cpf VARCHAR(20),
+                is_anonymous BOOLEAN DEFAULT TRUE,
                 has_audio BOOLEAN DEFAULT FALSE,
                 image_count INT DEFAULT 0,
                 has_video BOOLEAN DEFAULT FALSE,
@@ -57,13 +55,13 @@ export const initDB = async () => {
 
         console.log('Database and Tables verified.');
 
-        // Safe Migration for Name/CPF (Works on MySQL 5.7+ and MariaDB)
+        // Safe Migration for geo columns
         const addColumnSafe = async (columnSQL: string) => {
             try {
                 await pool.query(columnSQL);
                 console.log(`Migration successful: ${columnSQL}`);
             } catch (e: any) {
-                // Ignore "Dupicate column name" error (Code 1060)
+                // Ignore "Duplicate column name" error (Code 1060)
                 if (e.code === 'ER_DUP_FIELDNAME' || e.errno === 1060) {
                     return;
                 }
@@ -71,8 +69,6 @@ export const initDB = async () => {
             }
         };
 
-        await addColumnSafe("ALTER TABLE manifestations ADD COLUMN name VARCHAR(255)");
-        await addColumnSafe("ALTER TABLE manifestations ADD COLUMN cpf VARCHAR(20)");
         await addColumnSafe("ALTER TABLE manifestations ADD COLUMN latitude DECIMAL(10, 8)");
         await addColumnSafe("ALTER TABLE manifestations ADD COLUMN longitude DECIMAL(11, 8)");
 

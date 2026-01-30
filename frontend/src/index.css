@@ -1,5 +1,8 @@
 @import "tailwindcss";
 
+/* VLibras Widget CSS */
+@import url('https://vlibras.gov.br/app/vlibras-plugin.css');
+
 :root {
   font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
   line-height: 1.5;
@@ -51,7 +54,6 @@ html.high-contrast a {
 }
 
 /* Reading Mode */
-/* Reading Mode */
 body.reading-mode {
   font-family: 'Georgia', serif !important;
   line-height: 1.8 !important;
@@ -60,7 +62,6 @@ body.reading-mode {
   color: #333 !important;
 }
 
-/* Apply font size increase only to text containers, not recursively to everything */
 body.reading-mode p,
 body.reading-mode h1,
 body.reading-mode h2,
@@ -72,24 +73,21 @@ body.reading-mode a {
   font-size: 1.1rem;
 }
 
-/* VLibras Positioning Override */
-/* VLibras Positioning Override */
-.vp-enabled {
-  bottom: 0px !important;
-  right: 0px !important;
-  top: auto !important;
-  left: auto !important;
+/* VLibras - Positioning above the accessibility menu */
+[vw].enabled {
+  right: 16px !important;
+  bottom: 80px !important;
+  z-index: 99999 !important;
 }
 
 [vw] [vw-access-button] {
-  bottom: 20px !important;
-  right: 20px !important;
-  margin-bottom: 0 !important;
-  width: 40px !important;
-  height: 40px !important;
-  z-index: 10000 !important;
+  right: 16px !important;
+  bottom: 80px !important;
+  /* Removed custom sizing/border-radius to restore default icon appearance */
 }
 
-.vlibras-widget {
-  z-index: 9999 !important;
+[vw-plugin-wrapper] {
+  right: 16px !important;
+  bottom: 150px !important;
+  /* Popup appears above the button */
 }

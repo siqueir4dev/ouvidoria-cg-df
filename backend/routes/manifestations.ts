@@ -74,17 +74,15 @@ export async function manifestRoutes(fastify: FastifyInstance) {
 
             const protocol = `DF-2026-${Math.floor(Math.random() * 1000000)}`;
 
-            // Insert Manifestation
+            // Insert Manifestation (100% Anonymous - no personal data)
             const [result] = await pool.query<ResultSetHeader>(
-                `INSERT INTO manifestations (protocol, text, type, is_anonymous, name, cpf, has_audio, image_count, has_video, status, latitude, longitude) 
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                `INSERT INTO manifestations (protocol, text, type, is_anonymous, has_audio, image_count, has_video, status, latitude, longitude) 
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
                 [
                     protocol,
                     body.text || '',
                     body.type || 'Informação',
-                    body.isAnonymous ? 1 : 0,
-                    body.isAnonymous ? null : body.name,
-                    body.isAnonymous ? null : (body.cpf ? body.cpf.replace(/\D/g, '') : null),
+                    1, // Always anonymous
                     body.hasAudio ? 1 : 0,
                     body.imageCount,
                     body.hasVideo ? 1 : 0,
