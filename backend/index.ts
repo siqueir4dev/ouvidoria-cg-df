@@ -6,7 +6,7 @@ const server = Fastify({ logger: true });
 
 server.register(require('@fastify/multipart'), {
     limits: {
-        fileSize: 50 * 1024 * 1024, // 50MB limit
+        fileSize: 50 * 1024 * 1024, // Limite de 50MB
     }
 });
 
@@ -30,7 +30,7 @@ const start = async () => {
     try {
         await initDB();
         await server.listen({ port: 3000, host: '0.0.0.0' });
-        console.log('Server running on http://localhost:3000');
+        console.log('Server rodando em http://localhost:3000');
     } catch (err) {
         server.log.error(err);
         process.exit(1);

@@ -13,11 +13,11 @@ import ManifestationList from './pages/dashboard/ManifestationList';
 import NotFound from './pages/NotFound';
 import { AccessibilityProvider } from './contexts/AccessibilityContext';
 
-// Helper Wrapper to extract params and pass to SuccessPage
+// Função auxiliar para extrair parâmetros e passar para SuccessPage
 const SuccessPageWrapper = () => {
   const { protocol } = useParams<{ protocol: string }>();
   const navigate = useNavigate();
-  // Pass empty string if undefined to satisfy type, or handle error
+  // Passa string vazia se indefinido para satisfazer o tipo ou lidar com erro
   return <SuccessPage protocol={protocol || ''} onBack={() => navigate('/')} />;
 };
 
@@ -44,15 +44,15 @@ function App() {
             formData.append('type', item.type);
             formData.append('isAnonymous', String(item.isAnonymous));
 
-            // Re-attach stored blobs if they were successfully saved
-            // Note: DB storage for blobs is experimental in this MVP, might be missing if browser cleared it.
+            // Reanexar blobs armazenados se foram salvos com sucesso
+            // Nota: O armazenamento de blobs no DB é experimental neste MVP, pode estar ausente se o navegador limpar.
             if (item.images && item.images.length > 0) {
               item.images.forEach(img => formData.append('files', img));
             }
             if (item.video) formData.append('files', item.video);
             if (item.audio) formData.append('files', item.audio, 'record.webm');
 
-            // If we had name/cpf stored (which we decided to skip for now in form but good to handle if expanded)
+            // Se tivéssemos nome/cpf armazenados (que decidimos pular por enquanto no formulário, mas bom lidar se expandido)
             // formData.append('name', item.name || ''); 
             // formData.append('cpf', item.cpf || '');
 
@@ -66,7 +66,7 @@ function App() {
               await deleteManifestation(item.id!);
               syncedCount++;
 
-              // Add to local history so user sees it in "Consultar"
+              // Adicionar ao histórico local para que o usuário veja em "Consultar"
               const history = JSON.parse(localStorage.getItem('manifestationHeaderHistory') || '[]');
               history.unshift({ protocol: data.protocol, date: new Date().toISOString(), type: item.type });
               localStorage.setItem('manifestationHeaderHistory', JSON.stringify(history.slice(0, 10)));
@@ -84,10 +84,10 @@ function App() {
       }
     };
 
-    // Try to sync on mount if online
+    // Tenta sincronizar ao montar se estiver online
     syncOfflineData();
 
-    // Listen for online event
+    // Escuta evento de online
     window.addEventListener('online', syncOfflineData);
 
     return () => {

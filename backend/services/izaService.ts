@@ -15,28 +15,28 @@ interface AnalysisResult {
 }
 
 /**
- * Utility function to create a delay (sleep) in asynchronous operations.
- * Used primarily for rate limit backoff strategies.
- * @param ms Duration in milliseconds to wait.
+ * Função utilitária para criar um atraso (sleep) em operações assíncronas.
+ * Usada principalmente para estratégias de espera em rate limits.
+ * @param ms Duração em milissegundos para esperar.
  */
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
 /**
- * Analyzes a citizen's manifestation text using Google's Gemini AI.
+ * Analisa o texto de manifestação de um cidadão usando a IA Gemini do Google.
  * 
- * This service performs the following steps:
- * 1. Validates input length to avoid unnecessary API calls.
- * 2. Constructs a structured prompt instructing the AI to act as an Ombudsman.
- * 3. Sends the request to the `gemini-3-flash-preview` model.
- * 4. Parses the JSON response to extract the suggested category and reasoning.
- * 5. Implements a robust retry mechanism with exponential backoff for handling Rate Limits (429).
+ * Este serviço realiza os seguintes passos:
+ * 1. Valida o tamanho da entrada para evitar chamadas desnecessárias à API.
+ * 2. Constrói um prompt estruturado instruindo a IA a agir como um Ouvidor.
+ * 3. Envia a requisição para o modelo `gemini-3-flash-preview`.
+ * 4. Analisa a resposta JSON para extrair a categoria sugerida e a justificativa.
+ * 5. Implementa um mecanismo robusto de tentativas com backoff exponencial para lidar com Limites de Taxa (429).
  * 
- * @param text The content of the manifestation reported by the citizen.
- * @param userType The category initially selected by the user (for comparison).
- * @returns {Promise<AnalysisResult>} A structured result containing the suggestion and logic.
+ * @param text O conteúdo da manifestação relatada pelo cidadão.
+ * @param userType A categoria inicialmente selecionada pelo usuário (para comparação).
+ * @returns {Promise<AnalysisResult>} Um resultado estruturado contendo a sugestão e a lógica.
  */
 export const analyzeManifestation = async (text: string, userType: string): Promise<AnalysisResult> => {
-    // Optimization: Skip analysis for very short texts to save tokens and reduce latency.
+    // Otimização: Pula a análise para textos muito curtos para economizar tokens e reduzir latência.
     if (text.length < 10) {
         return { originalType: userType, suggestedType: userType, matches: true, reasoning: 'Texto muito curto.' };
     }
@@ -44,10 +44,10 @@ export const analyzeManifestation = async (text: string, userType: string): Prom
     const validTypes = ['Denúncia', 'Reclamação', 'Sugestão', 'Elogio', 'Informação'];
 
     /**
-     * Prompt Engineering:
-     * - Persona: Defines the AI as "IZA", the Ombudsman AI.
-     * - Task: Classify the text into one of the valid types.
-     * - Constraints: Output MUST be strict JSON to ensure programmatic parsing.
+     * Engenharia de Prompt:
+     * - Persona: Define a IA como "IZA", a IA da Ouvidoria.
+     * - Tarefa: Classificar o texto em um dos tipos válidos.
+     * - Restrições: A saída DEVE ser um JSON estrito para garantir a análise programática.
      */
     const prompt = `
     Você é a IZA, a inteligência artificial da Ouvidoria do DF.
@@ -70,7 +70,7 @@ export const analyzeManifestation = async (text: string, userType: string): Prom
     const maxRetries = 10;
     let attempt = 0;
 
-    // Retry Loop for Robustness
+    // Loop de Tentativa para Robustez
     while (attempt < maxRetries) {
         attempt++;
         try {
@@ -80,7 +80,7 @@ export const analyzeManifestation = async (text: string, userType: string): Prom
             const response = await result.response;
             const textResponse = response.text();
 
-            // Sanitize Response: Remove potential markdown code blocks (```json ... ```)
+            // Sanitizar Resposta: Remove possíveis blocos de código markdown (```json ... ```)
             const jsonStr = textResponse.replace(/^```json/, '').replace(/```$/, '').trim();
             const data = JSON.parse(jsonStr);
 
@@ -97,12 +97,12 @@ export const analyzeManifestation = async (text: string, userType: string): Prom
             };
 
         } catch (error: any) {
-            // Error Handling Strategy: Check for Rate Limits (429)
+            // Estratégia de Tratamento de Erro: Verifica por Limites de Taxa (429)
             const isRateLimitError = error?.status === 429 || error?.message?.includes('429') || error?.message?.includes('quota');
 
             if (isRateLimitError && attempt < maxRetries) {
-                // Intelligent Backoff: Use the 'Retry-After' header if provided, otherwise default to 60s
-                let waitTime = 60000; // 60 seconds default base path
+                // Backoff Inteligente: Usa o cabeçalho 'Retry-After' se fornecido, caso contrário, padrão de 60s
+                let waitTime = 60000; // Caminho base padrão de 60 segundos
 
                 if (error?.errorDetails) {
                     const retryInfo = error.errorDetails.find((d: any) => d['@type']?.includes('RetryInfo'));
@@ -121,7 +121,7 @@ export const analyzeManifestation = async (text: string, userType: string): Prom
 
             console.error('IZA AI Error:', error?.message || error);
 
-            // Fail gracefully only after exhausting all retries
+            // Falha graciosamente apenas após esgotar todas as tentativas
             if (attempt >= maxRetries) {
                 console.error('IZA AI: Todas as tentativas falharam.');
                 return {
@@ -134,7 +134,7 @@ export const analyzeManifestation = async (text: string, userType: string): Prom
         }
     }
 
-    // Fallback Code (Code Unreachable under normal logic, but typesafe)
+    // Código de Fallback (Código inalcançável sob lógica normal, mas seguro para tipos)
     return {
         originalType: userType,
         suggestedType: userType,

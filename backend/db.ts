@@ -15,7 +15,7 @@ const pool = mysql.createPool({
 
 export const initDB = async () => {
     try {
-        // Create connection without database to check/create it
+        // Cria conexão inicial sem especificar o banco de dados para verificar se ele existe
         const connection = await mysql.createConnection({
             host: process.env.DB_HOST || 'localhost',
             user: process.env.DB_USER || 'root',
@@ -25,7 +25,7 @@ export const initDB = async () => {
         await connection.query('CREATE DATABASE IF NOT EXISTS participa_df');
         await connection.end();
 
-        // Now verify tables with the pool
+        // Agora verifica e cria as tabelas utilizando o pool de conexões
         const [rows] = await pool.query(`
             CREATE TABLE IF NOT EXISTS manifestations (
                 id INT AUTO_INCREMENT PRIMARY KEY,
@@ -41,7 +41,7 @@ export const initDB = async () => {
             );
         `);
 
-        // Attachments Table
+        // Tabela de Anexos
         await pool.query(`
             CREATE TABLE IF NOT EXISTS attachments (
                 id INT AUTO_INCREMENT PRIMARY KEY,
@@ -53,7 +53,7 @@ export const initDB = async () => {
             );
         `);
 
-        // Responses/History Table
+        // Tabela de Respostas e Histórico
         await pool.query(`
             CREATE TABLE IF NOT EXISTS manifestation_responses (
                 id INT AUTO_INCREMENT PRIMARY KEY,
@@ -67,13 +67,13 @@ export const initDB = async () => {
 
         console.log('Database and Tables verified.');
 
-        // Safe Migration for geo columns
+        // Migração segura para adicionar colunas de geolocalização e identificação
         const addColumnSafe = async (columnSQL: string) => {
             try {
                 await pool.query(columnSQL);
                 console.log(`Migration successful: ${columnSQL}`);
             } catch (e: any) {
-                // Ignore "Duplicate column name" error (Code 1060)
+                // Ignora erro "Duplicate column name" (Código 1060) caso a coluna já exista
                 if (e.code === 'ER_DUP_FIELDNAME' || e.errno === 1060) {
                     return;
                 }
@@ -91,7 +91,7 @@ export const initDB = async () => {
     }
 
     try {
-        // Admins Table
+        // Tabela de Administradores
         await pool.query(`
             CREATE TABLE IF NOT EXISTS admins (
                 id INT AUTO_INCREMENT PRIMARY KEY,
@@ -102,7 +102,7 @@ export const initDB = async () => {
             );
         `);
 
-        // Seed Default Admin if Empty
+        // Cria o Administrador Padrão se a tabela estiver vazia
         const [rows] = await pool.query('SELECT COUNT(*) as count FROM admins');
         // @ts-ignore
         if (rows[0].count === 0) {
@@ -112,7 +112,7 @@ export const initDB = async () => {
                 'INSERT INTO admins (username, password_hash) VALUES (?, ?)',
                 ['admin', hashedPassword]
             );
-            console.log('⚠️  Default Admin Created: admin / admin123 (CHANGE THIS IN PRODUCTION)');
+            console.log('⚠️  Admin Padrão Criado: admin / admin123 (ALTERE ISSO EM PRODUÇÃO)');
         }
     } catch (error) {
         console.error('Error initializing admins table:', error);

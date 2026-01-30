@@ -57,7 +57,7 @@ Este projeto foi desenvolvido com foco rigoroso em acessibilidade, atendendo aos
 Para rodar este projeto localmente, você precisará de:
 
 1. **Node.js** (versão 18 ou superior)
-2. **MySQL** (ou MariaDB, como no Laragon/XAMPP)
+2. **MySQL** (Pode usar **XAMPP** ou **Laragon** para facilitar o servidor MySQL local)
 3. **Chave de API do Google Gemini** - [Obter aqui](https://ai.google.dev/)
 4. **Chaves do Google reCAPTCHA v2** - [Obter aqui](https://www.google.com/recaptcha/admin)
 

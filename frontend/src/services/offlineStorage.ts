@@ -6,13 +6,13 @@ export interface OfflineManifestation {
     id?: number;
     text: string;
     type: string;
-    isAnonymous: boolean; // Always true now
+    isAnonymous: boolean; // Sempre verdadeiro agora
     latitude?: number;
     longitude?: number;
     timestamp: number;
-    // Note: Storing files in IndexedDB can be heavy.
-    // For this MVP, we might store small blobs or warn user that files might not persist perfectly if too large.
-    // We will attempt to store them.
+    // Nota: Armazenar arquivos no IndexedDB pode ser pesado.
+    // Para este MVP, podemos armazenar pequenos blobs ou avisar o usuário que os arquivos podem não persistir perfeitamente se forem muito grandes.
+    // Tentaremos armazená-los.
     images?: Blob[];
     video?: Blob | null;
     audio?: Blob | null;

@@ -11,7 +11,7 @@ const pump = util.promisify(pipeline);
 
 export async function manifestRoutes(fastify: FastifyInstance) {
 
-    // Ensure uploads directory exists
+    // Garante que o diretório de uploads exista
     const uploadDir = path.join(__dirname, '../../uploads');
     if (!fs.existsSync(uploadDir)) {
         fs.mkdirSync(uploadDir, { recursive: true });
@@ -19,11 +19,11 @@ export async function manifestRoutes(fastify: FastifyInstance) {
 
     /**
      * POST /manifestations
-     * Handles the creation of a new manifestation (report).
-     * Supports 'multipart/form-data' to allow file uploads (images, videos, audio) alongside text fields.
+     * Lida com a criação de uma nova manifestação (relato).
+     * Suporta 'multipart/form-data' para permitir uploads de arquivos (imagens, vídeos, áudio) junto com campos de texto.
      */
     fastify.post('/manifestations', async (request, reply) => {
-        // 'request.parts()' returns an async iterator to process multipart fields sequentially.
+        // 'request.parts()' retorna um iterador assíncrono para processar campos multipart sequencialmente.
         const parts = request.parts();
 
         const body: any = {
@@ -35,45 +35,45 @@ export async function manifestRoutes(fastify: FastifyInstance) {
         const savedFiles: { path: string, type: string }[] = [];
 
         try {
-            // Iterate over each part of the multipart request
+            // Itera sobre cada parte da requisição multipart
             for await (const part of parts) {
                 if (part.type === 'file') {
-                    // ** Security Critical **: 
-                    // We do NOT use the original filename directly to prevent overwrites or directory traversal attacks.
-                    // Instead, we prepend a timestamp and replace potentially unsafe characters with underscores.
+                    // ** Segurança Crítica **: 
+                    // Nós NÃO usamos o nome de arquivo original diretamente para evitar sobrescritas ou ataques de diretório.
+                    // Em vez disso, prefixamos com um timestamp e substituímos caracteres potencialmente inseguros por underscores.
                     const timestamp = Date.now();
                     const safeFilename = `${timestamp}-${part.filename.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
                     const targetPath = path.join(uploadDir, safeFilename);
 
-                    // ** Stream Processing **:
-                    // We use 'pump' (pipeline) to stream the file data directly from the request to the disk.
-                    // This is memory efficient as it doesn't load the entire file into RAM.
+                    // ** Processamento por Stream **:
+                    // Usamos 'pump' (pipeline) para transmitir os dados do arquivo diretamente da requisição para o disco.
+                    // Isso é eficiente em memória, pois não carrega o arquivo inteiro na RAM.
                     await pump(part.file, fs.createWriteStream(targetPath));
 
                     savedFiles.push({
-                        path: safeFilename, // Relative to uploads dir
+                        path: safeFilename, // Relativo ao diretório uploads
                         type: part.mimetype
                     });
 
-                    // Update flags based on mimetype for quick UI rendering later
+                    // Atualiza flags com base no mimetype para renderização rápida na UI posteriormente
                     if (part.mimetype.startsWith('audio/')) body.hasAudio = true;
                     if (part.mimetype.startsWith('video/')) body.hasVideo = true;
                     if (part.mimetype.startsWith('image/')) body.imageCount++;
 
                 } else {
-                    // It's a regular form field (text, boolean, etc.)
-                    // Manually parse strings 'true'/'false' into booleans
+                    // É um campo de formulário comum (texto, booleano, etc.)
+                    // Analisa manualmente strings 'true'/'false' em booleanos
                     if (part.value === 'true') body[part.fieldname] = true;
                     else if (part.value === 'false') body[part.fieldname] = false;
                     else body[part.fieldname] = part.value;
                 }
             }
 
-            // ** AI ANALYSIS INTERCEPTION **
-            // If the frontend requests 'analyzeOnly', we skip database persistence.
+            // ** INTERCEPTAÇÃO PARA ANÁLISE DE IA **
+            // Se o frontend solicitar 'analyzeOnly', pulamos a persistência no banco de dados.
             if (body.analyzeOnly) {
-                // Delete uploaded files if it's just an analysis?
-                // For now we keep them or we could delete them. Let's delete to save space/privacy.
+                // Excluir arquivos enviados se for apenas uma análise?
+                // Por enquanto mantemos ou poderíamos excluir. Vamos excluir para economizar espaço/privacidade.
                 for (const file of savedFiles) {
                     try { fs.unlinkSync(path.join(uploadDir, file.path)); } catch (e) { }
                 }
@@ -87,7 +87,7 @@ export async function manifestRoutes(fastify: FastifyInstance) {
 
             const protocol = `DF-2026-${Math.floor(Math.random() * 1000000)}`;
 
-            // Insert Manifestation (Supports both Anonymous and Identified)
+            // Insere Manifestação (Suporta Anônimo e Identificado)
             const [result] = await pool.query<ResultSetHeader>(
                 `INSERT INTO manifestations (protocol, text, type, is_anonymous, has_audio, image_count, has_video, status, latitude, longitude, name, cpf) 
                  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
@@ -109,7 +109,7 @@ export async function manifestRoutes(fastify: FastifyInstance) {
 
             const manifestationId = result.insertId;
 
-            // Insert Attachments
+            // Insere Anexos
             if (savedFiles.length > 0) {
                 const attachmentValues = savedFiles.map(f => [manifestationId, f.path, f.type]);
                 await pool.query(
@@ -136,7 +136,7 @@ export async function manifestRoutes(fastify: FastifyInstance) {
         const { protocol } = request.params as { protocol: string };
 
         try {
-            // Fetch Manifestation
+            // Busca Manifestação
             const [rows] = await pool.query<RowDataPacket[]>(
                 'SELECT * FROM manifestations WHERE protocol = ?',
                 [protocol]
@@ -149,13 +149,13 @@ export async function manifestRoutes(fastify: FastifyInstance) {
 
             const manifestation = rows[0];
 
-            // Fetch Attachments
+            // Busca Anexos
             const [attachments] = await pool.query<RowDataPacket[]>(
                 'SELECT file_path, file_type FROM attachments WHERE manifestation_id = ?',
                 [manifestation.id]
             );
 
-            // Fetch Responses
+            // Busca Respostas
             const [responses] = await pool.query<RowDataPacket[]>(
                 'SELECT message, created_at, is_admin FROM manifestation_responses WHERE manifestation_id = ? ORDER BY created_at ASC',
                 [manifestation.id]
