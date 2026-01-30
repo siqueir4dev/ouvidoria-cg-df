@@ -17,7 +17,13 @@ export async function manifestRoutes(fastify: FastifyInstance) {
         fs.mkdirSync(uploadDir, { recursive: true });
     }
 
+    /**
+     * POST /manifestations
+     * Handles the creation of a new manifestation (report).
+     * Supports 'multipart/form-data' to allow file uploads (images, videos, audio) alongside text fields.
+     */
     fastify.post('/manifestations', async (request, reply) => {
+        // 'request.parts()' returns an async iterator to process multipart fields sequentially.
         const parts = request.parts();
 
         const body: any = {
@@ -29,13 +35,19 @@ export async function manifestRoutes(fastify: FastifyInstance) {
         const savedFiles: { path: string, type: string }[] = [];
 
         try {
+            // Iterate over each part of the multipart request
             for await (const part of parts) {
                 if (part.type === 'file') {
-                    // It's a file
+                    // ** Security Critical **: 
+                    // We do NOT use the original filename directly to prevent overwrites or directory traversal attacks.
+                    // Instead, we prepend a timestamp and replace potentially unsafe characters with underscores.
                     const timestamp = Date.now();
                     const safeFilename = `${timestamp}-${part.filename.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
                     const targetPath = path.join(uploadDir, safeFilename);
 
+                    // ** Stream Processing **:
+                    // We use 'pump' (pipeline) to stream the file data directly from the request to the disk.
+                    // This is memory efficient as it doesn't load the entire file into RAM.
                     await pump(part.file, fs.createWriteStream(targetPath));
 
                     savedFiles.push({
@@ -43,21 +55,22 @@ export async function manifestRoutes(fastify: FastifyInstance) {
                         type: part.mimetype
                     });
 
-                    // Update flags based on mimetype
+                    // Update flags based on mimetype for quick UI rendering later
                     if (part.mimetype.startsWith('audio/')) body.hasAudio = true;
                     if (part.mimetype.startsWith('video/')) body.hasVideo = true;
                     if (part.mimetype.startsWith('image/')) body.imageCount++;
 
                 } else {
-                    // It's a field
-                    // Handle potential boolean strings
+                    // It's a regular form field (text, boolean, etc.)
+                    // Manually parse strings 'true'/'false' into booleans
                     if (part.value === 'true') body[part.fieldname] = true;
                     else if (part.value === 'false') body[part.fieldname] = false;
                     else body[part.fieldname] = part.value;
                 }
             }
 
-            // ** AI INTERCEPTION **
+            // ** AI ANALYSIS INTERCEPTION **
+            // If the frontend requests 'analyzeOnly', we skip database persistence.
             if (body.analyzeOnly) {
                 // Delete uploaded files if it's just an analysis?
                 // For now we keep them or we could delete them. Let's delete to save space/privacy.

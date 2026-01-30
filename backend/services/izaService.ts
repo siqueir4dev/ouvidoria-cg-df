@@ -14,17 +14,41 @@ interface AnalysisResult {
     reasoning: string;
 }
 
-// Helper function to delay execution
+/**
+ * Utility function to create a delay (sleep) in asynchronous operations.
+ * Used primarily for rate limit backoff strategies.
+ * @param ms Duration in milliseconds to wait.
+ */
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
+/**
+ * Analyzes a citizen's manifestation text using Google's Gemini AI.
+ * 
+ * This service performs the following steps:
+ * 1. Validates input length to avoid unnecessary API calls.
+ * 2. Constructs a structured prompt instructing the AI to act as an Ombudsman.
+ * 3. Sends the request to the `gemini-3-flash-preview` model.
+ * 4. Parses the JSON response to extract the suggested category and reasoning.
+ * 5. Implements a robust retry mechanism with exponential backoff for handling Rate Limits (429).
+ * 
+ * @param text The content of the manifestation reported by the citizen.
+ * @param userType The category initially selected by the user (for comparison).
+ * @returns {Promise<AnalysisResult>} A structured result containing the suggestion and logic.
+ */
 export const analyzeManifestation = async (text: string, userType: string): Promise<AnalysisResult> => {
-    // If text is too short, skip analysis to save tokens/time
+    // Optimization: Skip analysis for very short texts to save tokens and reduce latency.
     if (text.length < 10) {
         return { originalType: userType, suggestedType: userType, matches: true, reasoning: 'Texto muito curto.' };
     }
 
     const validTypes = ['Denúncia', 'Reclamação', 'Sugestão', 'Elogio', 'Informação'];
 
+    /**
+     * Prompt Engineering:
+     * - Persona: Defines the AI as "IZA", the Ombudsman AI.
+     * - Task: Classify the text into one of the valid types.
+     * - Constraints: Output MUST be strict JSON to ensure programmatic parsing.
+     */
     const prompt = `
     Você é a IZA, a inteligência artificial da Ouvidoria do DF.
     Sua missão é classificar corretamente as manifestações dos cidadãos.
@@ -46,6 +70,7 @@ export const analyzeManifestation = async (text: string, userType: string): Prom
     const maxRetries = 10;
     let attempt = 0;
 
+    // Retry Loop for Robustness
     while (attempt < maxRetries) {
         attempt++;
         try {
@@ -55,7 +80,7 @@ export const analyzeManifestation = async (text: string, userType: string): Prom
             const response = await result.response;
             const textResponse = response.text();
 
-            // Clean markdown if present
+            // Sanitize Response: Remove potential markdown code blocks (```json ... ```)
             const jsonStr = textResponse.replace(/^```json/, '').replace(/```$/, '').trim();
             const data = JSON.parse(jsonStr);
 
@@ -72,11 +97,12 @@ export const analyzeManifestation = async (text: string, userType: string): Prom
             };
 
         } catch (error: any) {
+            // Error Handling Strategy: Check for Rate Limits (429)
             const isRateLimitError = error?.status === 429 || error?.message?.includes('429') || error?.message?.includes('quota');
 
             if (isRateLimitError && attempt < maxRetries) {
-                // Extract retry delay from error if available, default to 60 seconds
-                let waitTime = 60000; // 60 seconds default
+                // Intelligent Backoff: Use the 'Retry-After' header if provided, otherwise default to 60s
+                let waitTime = 60000; // 60 seconds default base path
 
                 if (error?.errorDetails) {
                     const retryInfo = error.errorDetails.find((d: any) => d['@type']?.includes('RetryInfo'));
@@ -95,12 +121,12 @@ export const analyzeManifestation = async (text: string, userType: string): Prom
 
             console.error('IZA AI Error:', error?.message || error);
 
-            // Only fail after all retries exhausted
+            // Fail gracefully only after exhausting all retries
             if (attempt >= maxRetries) {
                 console.error('IZA AI: Todas as tentativas falharam.');
                 return {
                     originalType: userType,
-                    suggestedType: userType,
+                    suggestedType: userType, // Fallback to user's original choice
                     matches: true,
                     reasoning: 'Erro na análise IA após múltiplas tentativas.'
                 };
@@ -108,7 +134,7 @@ export const analyzeManifestation = async (text: string, userType: string): Prom
         }
     }
 
-    // Fallback (should not reach here)
+    // Fallback Code (Code Unreachable under normal logic, but typesafe)
     return {
         originalType: userType,
         suggestedType: userType,

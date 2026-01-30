@@ -32,16 +32,16 @@ O **Participa DF Mobile** é uma aplicação Web Progressiva (PWA) desenvolvida 
 
 ## 🤖 Documentação da I.A. (Item 13.9)
 
-A plataforma utiliza Inteligência Artificial para auxiliar na triagem e classificação das manifestações, garantindo maior precisão no encaminhamento das demandas.
+A plataforma utiliza Inteligência Artificial para auxiliar na triagem e classificação das manifestações, garantindo maior precisão no encaminhamento das demandas e eficiência na gestão pública.
 
-*   **Modelo Utilizado**: `gemini-3-flash-preview` (Google DeepMind)
-*   **Biblioteca**: `@google/generative-ai`
+*   **Modelo Utilizado**: `gemini-3-flash-preview` (Google DeepMind) - Escolhido por sua alta capacidade de raciocínio e velocidade.
+*   **Biblioteca**: `@google/generative-ai` (SDK Oficial do Google para Node.js)
 *   **Propósito**: Análise semântica do texto da manifestação para sugerir a tipologia correta (Denúncia, Reclamação, Elogio, Sugestão ou Informação).
-*   **Funcionamento**:
-    1.  O texto do cidadão é enviado (de forma anônima) para a API.
-    2.  O modelo analisa o contexto e intenção.
-    3.  Retorna uma sugestão de categoria com uma justificativa amigável.
-    4.  O usuário decide se aceita a sugestão ou mantém sua escolha original.
+*   **Funcionamento Técnico**:
+    1.  **Entrada**: O texto do cidadão é higienizado e enviado (de forma anônima) para a API do Google.
+    2.  **Processamento**: O modelo `gemini-3-flash-preview` analisa o contexto, sentimento e intenção do relato.
+    3.  **Saída Estruturada**: Retorna um JSON contendo a categoria sugerida e uma "justificativa amigável" explicada em linguagem natural.
+    4.  **Decisão Humana**: O usuário visualiza a sugestão e decide se aceita ou mantém a classificação original.
 
 ## ♿ Acessibilidade e Inclusão (WCAG 2.1 AA)
 

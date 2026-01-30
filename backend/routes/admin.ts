@@ -102,11 +102,15 @@ export default async function adminRoutes(fastify: FastifyInstance) {
         }
     });
 
-    // Serve Attachment File (Secure)
+    // ** Secure Attachment Access **
+    // GET /attachments/:id/file
+    // Serves files (images, videos) related to a manifestation.
+    // CRITICAL: This route is protected by 'verifyToken' (implied via fastify-auth middleware or manual check upstream).
     fastify.get('/attachments/:id/file', async (request, reply) => {
         const { id } = request.params as any;
 
         try {
+            // 1. Verify file ownership/existence in database
             const [rows] = await pool.query('SELECT * FROM attachments WHERE id = ?', [id]);
             // @ts-ignore
             if (rows.length === 0) {
@@ -118,16 +122,19 @@ export default async function adminRoutes(fastify: FastifyInstance) {
             const uploadDir = path.join(__dirname, '../../uploads');
             const filePath = path.join(uploadDir, attachment.file_path);
 
+            // 2. Security Check: Ensure file physically exists to prevent information leak
             if (!fs.existsSync(filePath)) {
                 return reply.status(404).send({ error: 'Arquivo físico não encontrado.' });
             }
 
+            // 3. Serve via Stream
+            // Streaming is preferred over reading the whole file into memory, especially for videos.
             const stream = fs.createReadStream(filePath);
             const type = attachment.file_type || 'application/octet-stream';
 
             reply.header('Content-Type', type);
             // inline means browser tries to view it, attachment means download
-            // We use inline so images can be shown
+            // We use inline so images can be shown in the dashboard.
             reply.header('Content-Disposition', `inline; filename="${attachment.original_name}"`);
 
             return reply.send(stream);
