@@ -7,9 +7,9 @@ O **Participa DF Mobile** é uma aplicação Web Progressiva (PWA) desenvolvida 
 ## 🚀 Funcionalidades Principais
 
 * **Registro de Manifestações**: Envio de texto, áudio, imagens e vídeo.
-* **IZA - IA da Ouvidoria**: Assistente virtual que analisa e classifica manifestações automaticamente.
-* **Identidade Flexível**: Opção de envio anônimo ou identificado (com validação de CPF).
-* **Acessibilidade**: Menu de acessibilidade (Alto contraste, Tamanho de fonte, VLibras).
+* **IZA - IA da Ouvidoria**: Assistente virtual que analisa semanticamente o relato e sugere a classificação correta.
+* **Identidade Flexível**: Opção clara entre envio anônimo (sigilo total) ou identificado (com Nome e CPF).
+* **Acessibilidade Universal**: Conformidade com WCAG 2.1 Nível AA, incluindo VLibras, alto contraste e navegação por teclado.
 * **Comprovante Oficial**: Geração de PDF com protocolo único para acompanhamento.
 * **Offline First**: Funciona mesmo sem internet (armazena dados localmente e sincroniza depois).
 * **Consulta de Protocolos**: Histórico de protocolos enviados e busca por número.
@@ -22,12 +22,35 @@ O **Participa DF Mobile** é uma aplicação Web Progressiva (PWA) desenvolvida 
 * Lucide React (Ícones)
 * jsPDF (Geração de Comprovantes)
 * React Google reCAPTCHA
+* VLibras (Acessibilidade para Surdos)
 
 **Backend:**
 * Node.js + Fastify (Alta Performance)
 * MySQL (Banco de Dados Relacional)
 * TypeScript (Segurança de Tipagem)
 * Google Generative AI (Gemini API)
+
+## 🤖 Documentação da I.A. (Item 13.9)
+
+A plataforma utiliza Inteligência Artificial para auxiliar na triagem e classificação das manifestações, garantindo maior precisão no encaminhamento das demandas.
+
+*   **Modelo Utilizado**: `gemini-1.5-flash` (Google DeepMind)
+*   **Biblioteca**: `@google/generative-ai`
+*   **Propósito**: Análise semântica do texto da manifestação para sugerir a tipologia correta (Denúncia, Reclamação, Elogio, Sugestão ou Informação).
+*   **Funcionamento**:
+    1.  O texto do cidadão é enviado (de forma anônima) para a API.
+    2.  O modelo analisa o contexto e intenção.
+    3.  Retorna uma sugestão de categoria com uma justificativa amigável.
+    4.  O usuário decide se aceita a sugestão ou mantém sua escolha original.
+
+## ♿ Acessibilidade e Inclusão (WCAG 2.1 AA)
+
+Este projeto foi desenvolvido com foco rigoroso em acessibilidade, atendendo aos critérios da WCAG 2.1 Nível AA:
+
+*   **VLibras**: Widget de tradução automática para Libras disponível em todas as páginas.
+*   **Navegação por Teclado**: Todos os menus, formulários e modais são plenamente operáveis sem mouse.
+*   **Leitores de Tela**: Uso correto de etiquetas semânticas, `aria-labels` e `alt text` em imagens.
+*   **Contraste e Legibilidade**: Modos de Alto Contraste e Leitura (fonte aumentada) nativos.
 
 ## 📋 Pré-requisitos
 
@@ -136,7 +159,7 @@ ngrok http 3000
 
 ## 📱 Como Usar
 
-1. **Fazer uma Manifestação**: Preencha o formulário, anexe mídias se desejar, aceite os termos e envie.
+1. **Fazer uma Manifestação**: Escolha entre se identificar ou ser anônimo, preencha o formulário e envie.
 2. **Consultar Protocolo**: Acesse "Consultar Protocolos" no menu para buscar pelo número.
 3. **Instalar PWA**: No celular, acesse pelo navegador e clique em "Adicionar à Tela Inicial".
 
@@ -145,13 +168,6 @@ ngrok http 3000
 * URL: `/admin/login`
 * Usuário padrão: `admin`
 * Senha padrão: `admin123`
-
-## 🤖 IZA - Inteligência Artificial
-
-A **IZA** é o assistente virtual integrado que:
-- Analisa o relato do cidadão em tempo real
-- Sugere a classificação correta (Denúncia, Reclamação, Sugestão, etc.)
-- Apresenta feedback justificado se a classificação do usuário diferir
 
 ## 🤝 Contribuição
 

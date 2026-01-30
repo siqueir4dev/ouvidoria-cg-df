@@ -71,6 +71,8 @@ export const initDB = async () => {
 
         await addColumnSafe("ALTER TABLE manifestations ADD COLUMN latitude DECIMAL(10, 8)");
         await addColumnSafe("ALTER TABLE manifestations ADD COLUMN longitude DECIMAL(11, 8)");
+        await addColumnSafe("ALTER TABLE manifestations ADD COLUMN name VARCHAR(255) NULL");
+        await addColumnSafe("ALTER TABLE manifestations ADD COLUMN cpf VARCHAR(20) NULL");
 
     } catch (error) {
         console.error('Error initializing database:', error);

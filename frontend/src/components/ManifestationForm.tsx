@@ -1,7 +1,7 @@
 import React, { useState, type ChangeEvent, type FormEvent } from 'react';
 import { useMediaRecorder } from '../hooks/useMediaRecorder';
 
-import { Mic, Square, X, Image as ImageIcon, Video, Send, Shield, Sparkles, Bot, Check, ArrowRight, WifiOff, FileText, Info, AlertTriangle, ChevronDown, ChevronUp, Edit3, Lightbulb } from 'lucide-react';
+import { Mic, Square, X, Image as ImageIcon, Video, Send, Shield, Sparkles, Bot, Check, ArrowRight, WifiOff, FileText, Info, ChevronDown, ChevronUp, Edit3, Lightbulb, User, UserCheck } from 'lucide-react';
 import { saveOfflineManifestation } from '../services/offlineStorage';
 
 interface ManifestationFormProps {
@@ -11,6 +11,11 @@ interface ManifestationFormProps {
 const ManifestationForm: React.FC<ManifestationFormProps> = ({ onSuccess }) => {
     const [text, setText] = useState('');
     const [selectedType, setSelectedType] = useState('Reclamação');
+
+    // Identify State
+    const [isAnonymous, setIsAnonymous] = useState(true);
+    const [name, setName] = useState('');
+    const [cpf, setCpf] = useState('');
 
     const [images, setImages] = useState<File[]>([]);
     const [video, setVideo] = useState<File | null>(null);
@@ -71,6 +76,19 @@ const ManifestationForm: React.FC<ManifestationFormProps> = ({ onSuccess }) => {
         setImages(prev => prev.filter((_, i) => i !== index));
     };
 
+    const formatCPF = (value: string) => {
+        return value
+            .replace(/\D/g, '')
+            .replace(/(\d{3})(\d)/, '$1.$2')
+            .replace(/(\d{3})(\d)/, '$1.$2')
+            .replace(/(\d{3})(\d{1,2})/, '$1-$2')
+            .replace(/(-\d{2})\d+?$/, '$1');
+    };
+
+    const handleCpfChange = (e: ChangeEvent<HTMLInputElement>) => {
+        setCpf(formatCPF(e.target.value));
+    };
+
     const createFormData = (analyticsOnly: boolean = false) => {
         const formData = new FormData();
 
@@ -80,7 +98,12 @@ const ManifestationForm: React.FC<ManifestationFormProps> = ({ onSuccess }) => {
         if (analyticsOnly) {
             formData.append('analyzeOnly', 'true');
         } else {
-            formData.append('isAnonymous', 'true');
+            formData.append('isAnonymous', String(isAnonymous));
+            if (!isAnonymous) {
+                formData.append('name', name);
+                formData.append('cpf', cpf);
+            }
+
             images.forEach(img => formData.append('files', img));
             if (video) formData.append('files', video);
         }
@@ -129,6 +152,9 @@ const ManifestationForm: React.FC<ManifestationFormProps> = ({ onSuccess }) => {
                 setVideoPreview(null);
                 clearRecording();
                 setAgreedToTerms(false);
+                setIsAnonymous(true);
+                setName('');
+                setCpf('');
             } else {
                 alert('Erro ao enviar manifestação. O servidor respondeu com erro.');
             }
@@ -143,7 +169,8 @@ const ManifestationForm: React.FC<ManifestationFormProps> = ({ onSuccess }) => {
             await saveOfflineManifestation({
                 text,
                 type: selectedType,
-                isAnonymous: true,
+                isAnonymous: isAnonymous,
+                // store name/cpf offline if needed ideally, skipping for now to keep interface simple
             });
             alert('Você está offline. Sua manifestação foi salva no dispositivo e será enviada automaticamente quando a conexão retornar.');
             setText('');
@@ -158,12 +185,23 @@ const ManifestationForm: React.FC<ManifestationFormProps> = ({ onSuccess }) => {
         e.preventDefault();
 
         if (text.length < 20) {
-            alert('A descrição deve ter no mínimo 20 caracteres para que possamos entender melhor sua solicitação.');
+            alert('A descrição deve ter no mínimo 20 caracteres.');
             return;
         }
 
+        if (!isAnonymous) {
+            if (name.length < 3) {
+                alert('Por favor, informe seu nome completo.');
+                return;
+            }
+            if (cpf.length < 14) {
+                alert('Por favor, informe um CPF válido.');
+                return;
+            }
+        }
+
         if (!agreedToTerms) {
-            alert('Você precisa concordar com os Termos de Uso e Política de Privacidade para enviar sua manifestação.');
+            alert('Você precisa concordar com os Termos de Uso.');
             return;
         }
 
@@ -212,13 +250,13 @@ const ManifestationForm: React.FC<ManifestationFormProps> = ({ onSuccess }) => {
 
             {/* Terms Modal */}
             {showTermsModal && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-                    <div className="bg-white dark:bg-gray-800 rounded-lg shadow-2xl max-w-lg w-full overflow-hidden border border-gray-200 dark:border-gray-700">
+                <div role="dialog" aria-modal="true" className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+                    <div className="bg-white dark:bg-gray-800 rounded-lg shadow-2xl max-w-lg w-full overflow-hidden border border-gray-200 dark:border-gray-700 focus:outline-none">
                         <div className="bg-gray-100 dark:bg-gray-900 p-4 flex items-center justify-between border-b border-gray-200 dark:border-gray-700">
                             <h3 className="font-bold text-gray-800 dark:text-gray-100 flex items-center gap-2">
                                 <FileText className="w-5 h-5" /> Termos de Uso
                             </h3>
-                            <button onClick={() => setShowTermsModal(false)} className="text-gray-500 hover:text-gray-700 dark:hover:text-gray-300">
+                            <button autoFocus onClick={() => setShowTermsModal(false)} className="text-gray-500 hover:text-gray-700 dark:hover:text-gray-300">
                                 <X className="w-5 h-5" />
                             </button>
                         </div>
@@ -249,31 +287,28 @@ const ManifestationForm: React.FC<ManifestationFormProps> = ({ onSuccess }) => {
 
             {/* Privacy Modal */}
             {showPrivacyModal && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-                    <div className="bg-white dark:bg-gray-800 rounded-lg shadow-2xl max-w-lg w-full overflow-hidden border border-gray-200 dark:border-gray-700">
+                <div role="dialog" aria-modal="true" className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+                    <div className="bg-white dark:bg-gray-800 rounded-lg shadow-2xl max-w-lg w-full overflow-hidden border border-gray-200 dark:border-gray-700 focus:outline-none">
                         <div className="bg-gray-100 dark:bg-gray-900 p-4 flex items-center justify-between border-b border-gray-200 dark:border-gray-700">
                             <h3 className="font-bold text-gray-800 dark:text-gray-100 flex items-center gap-2">
                                 <Shield className="w-5 h-5" /> Política de Privacidade
                             </h3>
-                            <button onClick={() => setShowPrivacyModal(false)} className="text-gray-500 hover:text-gray-700 dark:hover:text-gray-300">
+                            <button autoFocus onClick={() => setShowPrivacyModal(false)} className="text-gray-500 hover:text-gray-700 dark:hover:text-gray-300">
                                 <X className="w-5 h-5" />
                             </button>
                         </div>
                         <div className="p-6 max-h-80 overflow-y-auto text-sm text-gray-700 dark:text-gray-300 space-y-4">
-                            <p><strong>1. Anonimato Total</strong></p>
-                            <p>Todas as manifestações são 100% anônimas. Não solicitamos nem armazenamos: nome, CPF, e-mail, telefone, endereço ou qualquer dado pessoal identificável.</p>
+                            <p><strong>1. Anonimato e Identificação</strong></p>
+                            <p>O usuário pode escolher se identificar ou realizar uma manifestação 100% anônima. Caso opte pelo anonimato, nenhum dado pessoal será solicitado ou armazenado.</p>
 
                             <p><strong>2. Dados Coletados</strong></p>
-                            <p>Coletamos apenas: texto da manifestação, tipo selecionado, arquivos anexados (se houver), data/hora do envio.</p>
+                            <p>Coletamos apenas: texto da manifestação, tipo selecionado, arquivos anexados. Se identificado: Nome e CPF.</p>
 
                             <p><strong>3. Proteção ao Denunciante</strong></p>
-                            <p>Seguindo os princípios da LGPD e do Decreto nº 36.462/2015, garantimos sigilo absoluto. Nenhuma informação pode identificar o autor da manifestação.</p>
+                            <p>Seguindo os princípios da LGPD e do Decreto nº 36.462/2015, garantimos sigilo. Suas informações são utilizadas apenas para o processamento da demanda.</p>
 
                             <p><strong>4. Segurança</strong></p>
-                            <p>Os dados são armazenados em servidor seguro. Não compartilhamos informações com terceiros.</p>
-
-                            <p><strong>5. Arquivos Anexados</strong></p>
-                            <p>Recomendamos remover metadados de fotos/vídeos antes do envio. Evite incluir documentos com seus dados pessoais.</p>
+                            <p>Os dados são armazenados em servidor seguro. Não compartilhamos informações com terceiros sem autorização legal.</p>
                         </div>
                         <div className="p-4 bg-gray-50 dark:bg-gray-900 border-t border-gray-200 dark:border-gray-700">
                             <button onClick={() => setShowPrivacyModal(false)} className="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded-lg font-medium">
@@ -309,21 +344,10 @@ const ManifestationForm: React.FC<ManifestationFormProps> = ({ onSuccess }) => {
                         <div className="bg-white dark:bg-gray-900 p-3 rounded-lg border border-gray-200 dark:border-gray-700">
                             <div className="flex items-center gap-2 mb-2">
                                 <Shield className="w-4 h-4 text-gray-600 dark:text-gray-400" />
-                                <span className="font-bold text-gray-800 dark:text-gray-200">Proteção ao Denunciante</span>
+                                <span className="font-bold text-gray-800 dark:text-gray-200">Anonimato ou Identificação</span>
                             </div>
                             <p className="text-gray-600 dark:text-gray-400">
-                                Todas as manifestações são tratadas com <strong>sigilo absoluto</strong>. Nenhuma informação pessoal é solicitada ou armazenada.
-                            </p>
-                        </div>
-
-                        {/* Warning */}
-                        <div className="bg-white dark:bg-gray-900 p-3 rounded-lg border border-gray-200 dark:border-gray-700">
-                            <div className="flex items-center gap-2 mb-2">
-                                <AlertTriangle className="w-4 h-4 text-gray-600 dark:text-gray-400" />
-                                <span className="font-bold text-gray-800 dark:text-gray-200">Atenção</span>
-                            </div>
-                            <p className="text-gray-600 dark:text-gray-400">
-                                <strong>Não escreva seus dados pessoais</strong> (nome, CPF, e-mail, endereço, etc.) no texto do seu registro. Isso protege seu sigilo.
+                                Você pode escolher se identificar para acompanhar melhor sua solicitação ou permanecer <strong>totalmente anônimo</strong>.
                             </p>
                         </div>
 
@@ -350,7 +374,7 @@ const ManifestationForm: React.FC<ManifestationFormProps> = ({ onSuccess }) => {
 
             {/* IZA Intervention Modal */}
             {izaSuggestion && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
+                <div role="dialog" aria-modal="true" className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
                     <div className="bg-white dark:bg-gray-800 rounded-lg shadow-2xl max-w-lg w-full overflow-hidden border border-gray-200 dark:border-gray-700 animate-scale-in">
                         <div className="bg-blue-600 p-5 text-white flex items-center gap-3">
                             <div className="bg-white/10 p-2 rounded-lg">
@@ -416,13 +440,67 @@ const ManifestationForm: React.FC<ManifestationFormProps> = ({ onSuccess }) => {
 
             <form onSubmit={handleSubmit} className="space-y-6" aria-label="Formulário de Manifestação">
 
-                {/* Anonymous Badge - Normalized colors */}
-                <div className="bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 p-4 rounded-lg flex items-center gap-3">
-                    <Shield className="w-6 h-6 text-gray-600 dark:text-gray-400" />
-                    <div>
-                        <span className="font-bold text-gray-800 dark:text-gray-200">Registro 100% Anônimo</span>
-                        <p className="text-sm text-gray-500 dark:text-gray-400">Sua identidade é protegida. Nenhum dado pessoal é solicitado.</p>
+                {/* Identification Selection */}
+                <div className="bg-white dark:bg-gray-800 p-4 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm">
+                    <label className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3 block">Como você deseja se identificar?</label>
+                    <div className="grid grid-cols-2 gap-3">
+                        <button
+                            type="button"
+                            onClick={() => setIsAnonymous(true)}
+                            className={`p-3 rounded-lg border flex flex-col items-center justify-center gap-2 transition-all ${isAnonymous
+                                ? 'bg-gray-700 text-white border-gray-700 dark:bg-gray-600 dark:border-gray-500 ring-2 ring-gray-300 dark:ring-gray-600'
+                                : 'bg-gray-50 dark:bg-gray-900 text-gray-500 border-gray-200 dark:border-gray-700 hover:bg-gray-100'
+                                }`}
+                        >
+                            <Shield className="w-5 h-5" />
+                            <span className="text-sm font-bold">Anônimo</span>
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => setIsAnonymous(false)}
+                            className={`p-3 rounded-lg border flex flex-col items-center justify-center gap-2 transition-all ${!isAnonymous
+                                ? 'bg-blue-600 text-white border-blue-600 ring-2 ring-blue-200 dark:ring-blue-900'
+                                : 'bg-gray-50 dark:bg-gray-900 text-gray-500 border-gray-200 dark:border-gray-700 hover:bg-blue-50 hover:text-blue-600'
+                                }`}
+                        >
+                            <UserCheck className="w-5 h-5" />
+                            <span className="text-sm font-bold">Identificado</span>
+                        </button>
                     </div>
+
+                    {!isAnonymous && (
+                        <div className="mt-4 space-y-3 animate-fade-in-up">
+                            <div>
+                                <label htmlFor="name" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Nome Completo</label>
+                                <div className="relative">
+                                    <User className="absolute left-3 top-3 w-4 h-4 text-gray-400" />
+                                    <input
+                                        type="text"
+                                        id="name"
+                                        value={name}
+                                        onChange={(e) => setName(e.target.value)}
+                                        className="w-full pl-10 p-2.5 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                        placeholder="Seu nome completo"
+                                    />
+                                </div>
+                            </div>
+                            <div>
+                                <label htmlFor="cpf" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">CPF</label>
+                                <div className="relative">
+                                    <FileText className="absolute left-3 top-3 w-4 h-4 text-gray-400" />
+                                    <input
+                                        type="text"
+                                        id="cpf"
+                                        value={cpf}
+                                        onChange={handleCpfChange}
+                                        maxLength={14}
+                                        className="w-full pl-10 p-2.5 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                        placeholder="000.000.000-00"
+                                    />
+                                </div>
+                            </div>
+                        </div>
+                    )}
                 </div>
 
                 {/* 1. Text Area - Primary Focus */}
