@@ -11,27 +11,47 @@ const AccessibilityMenu: React.FC = () => {
         decreaseFont,
         toggleHighContrast,
         toggleReadingMode,
-        resetSettings // Fix: Add missing destructuring
+        resetSettings
     } = useAccessibility();
 
     const [isOpen, setIsOpen] = useState(false);
+    const [isVisible, setIsVisible] = useState(true);
+
+    useEffect(() => {
+        const storedVisibility = localStorage.getItem('accessibility_visible');
+        if (storedVisibility === 'false') {
+            setIsVisible(false);
+        }
+    }, []);
 
     // Keyboard shortcut Alt+A to toggle
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
             if (e.altKey && e.key.toLowerCase() === 'a') {
+                if (!isVisible) {
+                    setIsVisible(true);
+                    localStorage.setItem('accessibility_visible', 'true');
+                }
                 setIsOpen(prev => !prev);
             }
         };
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
-    }, []);
+    }, [isVisible]);
+
+    const handleCloseCompletely = () => {
+        setIsVisible(false);
+        setIsOpen(false);
+        localStorage.setItem('accessibility_visible', 'false');
+    };
+
+    if (!isVisible) return null;
 
     return (
         <div className="fixed right-4 bottom-4 z-50 flex flex-col-reverse items-end gap-3">
             {isOpen && (
                 <div className="bg-white p-4 rounded-lg shadow-2xl mb-2 flex flex-col gap-3 w-72 border border-gray-200 animate-fade-in-up origin-bottom-right">
-                    <div className="flex justify-between items-center border-b border-gray-200 pb-2">
+                    <div className="flex justify-between items-center border-b border-gray-200 pb-2 flex-row-reverse">
                         <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
                             <Accessibility className="w-6 h-6 text-blue-600" /> Acessibilidade
                         </h3>
@@ -96,13 +116,21 @@ const AccessibilityMenu: React.FC = () => {
                         </button>
                     </div>
 
-                    <div className="pt-3 border-t border-gray-200 flex justify-between items-center text-xs">
-                        <span className="text-gray-500">Atalho: Alt + A</span>
+                    <div className="pt-3 border-t border-gray-200 flex flex-col gap-2 text-xs">
+                        <div className="flex justify-between items-center">
+                            <span className="text-gray-500">Atalho: Alt + A</span>
+                            <button
+                                onClick={resetSettings}
+                                className="flex items-center gap-1 text-red-500 hover:text-red-700 hover:bg-red-50 px-2 py-1 rounded transition-colors"
+                            >
+                                <RotateCcw className="w-3 h-3" /> Restaurar
+                            </button>
+                        </div>
                         <button
-                            onClick={resetSettings}
-                            className="flex items-center gap-1 text-red-500 hover:text-red-700 hover:bg-red-50 px-2 py-1 rounded transition-colors"
+                            onClick={handleCloseCompletely}
+                            className="w-full text-center text-gray-400 hover:text-red-500 hover:bg-red-50 py-1 rounded transition-colors"
                         >
-                            <RotateCcw className="w-3 h-3" /> Restaurar
+                            Ocultar botão de acessibilidade
                         </button>
                     </div>
                 </div>
