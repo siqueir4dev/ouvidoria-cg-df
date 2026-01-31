@@ -87,7 +87,7 @@ const PublicManifestationsPage = () => {
                                     <div className="absolute top-0 left-0 w-1 h-full bg-gradient-to-b from-blue-500 to-purple-500 opacity-0 group-hover:opacity-100 transition-opacity" />
 
                                     <div className="flex items-center justify-between mb-5">
-                                        <div className={`px-3 py-1.5 rounded-full text-xs font-semibold flex items-center gap-2 ${getTypeBadgeColor(m.type)}`}>
+                                        <div className={`px-3 py-1.5 rounded-full text-xs font-semibold flex items-center gap-2 ${getTypeBadgeColor()}`}>
                                             {getTypeIcon(m.type)}
                                             <span className="uppercase tracking-wider text-[10px]">{m.type}</span>
                                         </div>
