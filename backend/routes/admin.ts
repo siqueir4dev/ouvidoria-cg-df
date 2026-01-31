@@ -3,6 +3,7 @@ import pool from '../db';
 import { authenticateToken } from '../middleware';
 import fs from 'fs';
 import path from 'path';
+import { RowDataPacket } from 'mysql2';
 
 export default async function adminRoutes(fastify: FastifyInstance) {
 
@@ -39,23 +40,53 @@ export default async function adminRoutes(fastify: FastifyInstance) {
 
     // Get List of Manifestations (Paginated)
     fastify.get('/manifestations', async (request, reply) => {
-        const { page = 1, limit = 10, status } = request.query as any;
+        const { page = 1, limit = 10, status, type, is_public } = request.query as any;
         const offset = (page - 1) * limit;
 
         try {
-            let query = 'SELECT * FROM manifestations';
+            let query = 'SELECT * FROM manifestations WHERE 1=1';
             const params: any[] = [];
 
             if (status) {
-                query += ' WHERE status = ?';
+                query += ' AND status = ?';
                 params.push(status);
+            }
+
+            if (type) {
+                query += ' AND type = ?';
+                params.push(type);
+            }
+
+            if (is_public !== undefined && is_public !== 'all') {
+                query += ' AND is_public = ?';
+                params.push(is_public === 'true' || is_public === '1' ? 1 : 0);
             }
 
             query += ' ORDER BY created_at DESC LIMIT ? OFFSET ?';
             params.push(Number(limit), Number(offset));
 
             const [rows] = await pool.query(query, params);
-            const [countResult] = await pool.query('SELECT COUNT(*) as total FROM manifestations' + (status ? ' WHERE status = ?' : ''), status ? [status] : []);
+
+            // Count query
+            let countQuery = 'SELECT COUNT(*) as total FROM manifestations WHERE 1=1';
+            const countParams: any[] = [];
+
+            if (status) {
+                countQuery += ' AND status = ?';
+                countParams.push(status);
+            }
+
+            if (type) {
+                countQuery += ' AND type = ?';
+                countParams.push(type);
+            }
+
+            if (is_public !== undefined && is_public !== 'all') {
+                countQuery += ' AND is_public = ?';
+                countParams.push(is_public === 'true' || is_public === '1' ? 1 : 0);
+            }
+
+            const [countResult] = await pool.query(countQuery, countParams);
 
             return {
                 data: rows,
@@ -184,6 +215,51 @@ export default async function adminRoutes(fastify: FastifyInstance) {
         } catch (error) {
             console.error(error);
             return reply.status(500).send({ error: 'Erro ao atualizar status.' });
+        }
+    });
+
+    /**
+     * PUT /manifestations/:id/public-update
+     * Admin Endpoint: Allows editing the text (redacting PII) and marking as public.
+     */
+    fastify.put('/manifestations/:id/public-update', async (request, reply) => {
+        console.log('--- ADMIN UPDATE REQUEST RECEIVED ---');
+        console.log('Params:', request.params);
+        console.log('Body:', request.body);
+        console.log('Headers:', request.headers);
+
+        const { id } = request.params as { id: string };
+        const { text, makePublic } = request.body as { text: string, makePublic: boolean };
+
+        if (!text) {
+            return reply.code(400).send({ error: 'Texto é obrigatório.' });
+        }
+
+        try {
+            // First, get original text to save it if it's the first edit
+            const [rows] = await pool.query<RowDataPacket[]>('SELECT text, original_text FROM manifestations WHERE id = ?', [id]);
+            // @ts-ignore
+            if (rows.length === 0) return reply.code(404).send({ error: 'Manifestação não encontrada.' });
+
+            // @ts-ignore
+            const current = rows[0];
+            const originalToSave = current.original_text || current.text; // Preserve the very first version
+
+            await pool.query(
+                `UPDATE manifestations 
+                 SET text = ?, 
+                     original_text = ?, 
+                     is_public = ?, 
+                     was_edited = 1 
+                 WHERE id = ?`,
+                [text, originalToSave, makePublic ? 1 : 0, id]
+            );
+
+            return { success: true, message: 'Manifestação atualizada com sucesso.' };
+
+        } catch (error) {
+            console.error('Erro ao atualizar manifestação:', error);
+            reply.code(500).send({ error: 'Erro interno.' });
         }
     });
 }

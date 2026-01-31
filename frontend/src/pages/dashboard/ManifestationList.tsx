@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { Loader2, Filter, CheckCircle, Clock, Archive, Eye, X, User, FileText, Image, Video, Mic, Calendar, Hash, Tag, Download, Send, MessageSquare } from 'lucide-react';
+import { Loader2, Filter, CheckCircle, Clock, Archive, Eye, X, User, FileText, Image, Video, Mic, Calendar, Hash, Tag, Download, Send, MessageSquare, Edit3, Globe, ShieldAlert, Lock } from 'lucide-react';
 
 interface Manifestation {
     id: number;
@@ -12,6 +12,9 @@ interface Manifestation {
     cpf?: string;
     attachments?: Attachment[];
     responses?: Response[];
+    is_public?: boolean | number;
+    original_text?: string;
+    was_edited?: boolean | number;
 }
 
 interface Attachment {
@@ -58,10 +61,14 @@ const ManifestationList: React.FC = () => {
     const [page, setPage] = useState(1);
     const [totalPages, setTotalPages] = useState(1);
     const [filterStatus, setFilterStatus] = useState('');
+    const [filterType, setFilterType] = useState('');
+    const [filterPublic, setFilterPublic] = useState('all');
 
     // Modal State
     const [actionModalOpen, setActionModalOpen] = useState(false);
     const [detailsModalOpen, setDetailsModalOpen] = useState(false);
+    const [editModalOpen, setEditModalOpen] = useState(false);
+    const [editText, setEditText] = useState('');
 
     // Selection State
     const [selectedManifestation, setSelectedManifestation] = useState<Manifestation | null>(null);
@@ -81,6 +88,8 @@ const ManifestationList: React.FC = () => {
         try {
             const params = new URLSearchParams({ page: String(page), limit: '10' });
             if (filterStatus) params.append('status', filterStatus);
+            if (filterType) params.append('type', filterType);
+            if (filterPublic !== 'all') params.append('is_public', filterPublic === 'public' ? 'true' : 'false');
 
             const response = await fetch(`http://localhost:3000/api/v1/admin/manifestations?${params}`, {
                 headers: { Authorization: `Bearer ${token}` }
@@ -147,9 +156,39 @@ const ManifestationList: React.FC = () => {
         }
     };
 
+    const handleOpenEdit = () => {
+        if (selectedManifestation) {
+            setEditText(selectedManifestation.text);
+            setEditModalOpen(true);
+        }
+    };
+
+    const handleSavePublic = async () => {
+        if (!selectedManifestation) return;
+        const token = localStorage.getItem('adminToken');
+        try {
+            const response = await fetch(`http://localhost:3000/api/v1/admin/manifestations/${selectedManifestation.id}/public-update`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+                body: JSON.stringify({ text: editText, makePublic: true })
+            });
+
+            if (response.ok) {
+                // Update local state
+                fetchDetails(selectedManifestation.id);
+                setEditModalOpen(false);
+                alert('Manifestação atualizada e tornada pública!');
+            } else {
+                alert('Erro ao atualizar manifestação.');
+            }
+        } catch (e) {
+            alert('Erro de conexão.');
+        }
+    };
+
     useEffect(() => {
         fetchManifestations();
-    }, [page, filterStatus]);
+    }, [page, filterStatus, filterType, filterPublic]);
 
     const initiateAction = (id: number, status: string, title: string) => {
         setSelectedActionAction({ id, status, title });
@@ -290,14 +329,42 @@ const ManifestationList: React.FC = () => {
                                 )}
                             </div>
 
-                            {/* Conteúdo */}
                             <section>
-                                <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100 mb-3 flex items-center gap-2">
-                                    <FileText className="w-5 h-5 text-gray-400" /> Relato
-                                </h3>
-                                <div className="bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-300 leading-relaxed whitespace-pre-wrap text-base">
+                                <div className="flex items-center justify-between mb-3">
+                                    <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100 flex items-center gap-2">
+                                        <FileText className="w-5 h-5 text-gray-400" /> Relato
+                                    </h3>
+                                    <button
+                                        onClick={handleOpenEdit}
+                                        className="text-xs bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-300 px-3 py-1.5 rounded-lg border border-blue-100 dark:border-blue-800 hover:bg-blue-100 transition flex items-center gap-1.5"
+                                    >
+                                        <Edit3 className="w-3.5 h-3.5" /> Editar / Tornar Público
+                                    </button>
+                                </div>
+
+                                {selectedManifestation.is_public ? (
+                                    <div className="mb-3 px-3 py-2 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg flex items-center gap-2 text-sm text-green-700 dark:text-green-300">
+                                        <Globe className="w-4 h-4" />
+                                        Esta manifestação é <strong>PÚBLICA</strong>.
+                                    </div>
+                                ) : (
+                                    <div className="mb-3 px-3 py-2 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
+                                        <ShieldAlert className="w-4 h-4" />
+                                        Visível apenas para a Ouvidoria (Privado).
+                                    </div>
+                                )}
+
+                                <div className="bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-300 leading-relaxed whitespace-pre-wrap text-base p-4 border border-gray-100 dark:border-gray-800 rounded-lg">
                                     {selectedManifestation.text}
                                 </div>
+                                {selectedManifestation.was_edited && selectedManifestation.original_text && (
+                                    <details className="mt-2 text-xs text-gray-400 cursor-pointer">
+                                        <summary>Ver texto original (antes da edição)</summary>
+                                        <div className="mt-1 p-2 bg-gray-50 dark:bg-gray-800 rounded border border-gray-200 dark:border-gray-700">
+                                            {selectedManifestation.original_text}
+                                        </div>
+                                    </details>
+                                )}
                             </section>
 
                             {/* Anexos */}
@@ -447,53 +514,98 @@ const ManifestationList: React.FC = () => {
                 </div>
             )}
 
-            {/* Action Confirmation Modal */}
-            {actionModalOpen && selectedActionAction && (
-                <div role="dialog" className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-fade-in">
-                    <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl max-w-sm w-full p-6 animate-scale-in border border-gray-200 dark:border-gray-700">
-                        <div className="flex flex-col items-center text-center gap-4">
-                            <div className={`p-4 rounded-full bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300`}>
-                                {selectedActionAction.status === 'resolved' ? <CheckCircle className="w-8 h-8" /> :
-                                    selectedActionAction.status === 'archived' ? <Archive className="w-8 h-8" /> :
-                                        <Clock className="w-8 h-8" />}
-                            </div>
 
-                            <div>
-                                <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">{selectedActionAction.title}</h3>
-                                <p className="text-gray-500 dark:text-gray-400 text-sm">
-                                    Confirma a atualização de status?
+            {/* Edit / Redact Modal */}
+            {
+                editModalOpen && (
+                    <div role="dialog" className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-fade-in">
+                        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl max-w-2xl w-full p-6 animate-scale-in border border-gray-200 dark:border-gray-700 flex flex-col max-h-[90vh]">
+                            <div className="mb-4">
+                                <h3 className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                                    <Edit3 className="w-5 h-5 text-blue-500" /> Editar e Tornar Público
+                                </h3>
+                                <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                                    Remova dados pessoais (nomes, CPFs, telefones) antes de publicar. O original será salvo.
                                 </p>
                             </div>
 
-                            <div className="grid grid-cols-2 gap-3 w-full mt-2">
+                            <textarea
+                                value={editText}
+                                onChange={(e) => setEditText(e.target.value)}
+                                className="flex-1 w-full p-4 bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 font-mono text-sm min-h-[200px]"
+                            />
+
+                            <div className="flex justify-end gap-3 mt-6">
                                 <button
-                                    onClick={() => setActionModalOpen(false)}
+                                    onClick={() => setEditModalOpen(false)}
                                     className="px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 font-medium transition-colors"
                                 >
                                     Cancelar
                                 </button>
                                 <button
-                                    onClick={confirmAction}
-                                    className="px-4 py-2 rounded-lg bg-gray-900 dark:bg-white text-white dark:text-gray-900 hover:opacity-90 font-bold transition-transform active:scale-95"
+                                    onClick={handleSavePublic}
+                                    className="px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 font-bold transition-colors flex items-center gap-2"
                                 >
-                                    Confirmar
+                                    <Globe className="w-4 h-4" /> Salvar e Publicar
                                 </button>
                             </div>
                         </div>
                     </div>
-                </div>
-            )}
+                )
+            }
+
+            {/* Action Confirmation Modal */}
+            {
+                actionModalOpen && selectedActionAction && (
+                    <div role="dialog" className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-fade-in">
+                        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl max-w-sm w-full p-6 animate-scale-in border border-gray-200 dark:border-gray-700">
+                            <div className="flex flex-col items-center text-center gap-4">
+                                <div className={`p-4 rounded-full bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300`}>
+                                    {selectedActionAction.status === 'resolved' ? <CheckCircle className="w-8 h-8" /> :
+                                        selectedActionAction.status === 'archived' ? <Archive className="w-8 h-8" /> :
+                                            <Clock className="w-8 h-8" />}
+                                </div>
+
+                                <div>
+                                    <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">{selectedActionAction.title}</h3>
+                                    <p className="text-gray-500 dark:text-gray-400 text-sm">
+                                        Confirma a atualização de status?
+                                    </p>
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-3 w-full mt-2">
+                                    <button
+                                        onClick={() => setActionModalOpen(false)}
+                                        className="px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 font-medium transition-colors"
+                                    >
+                                        Cancelar
+                                    </button>
+                                    <button
+                                        onClick={confirmAction}
+                                        className="px-4 py-2 rounded-lg bg-gray-900 dark:bg-white text-white dark:text-gray-900 hover:opacity-90 font-bold transition-transform active:scale-95"
+                                    >
+                                        Confirmar
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                )
+            }
 
             {/* Simple Main List Header */}
             <div className="flex flex-col sm:flex-row justify-between items-center gap-4 bg-white dark:bg-gray-800 p-4 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm">
                 <h2 className="text-xl font-bold text-gray-800 dark:text-white">Gestão de Manifestações</h2>
 
-                <div className="flex items-center gap-2">
-                    <Filter className="w-5 h-5 text-gray-400" />
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto">
+                    <div className="hidden sm:block">
+                        <Filter className="w-5 h-5 text-gray-400" />
+                    </div>
+
                     <select
                         value={filterStatus}
                         onChange={(e) => { setFilterStatus(e.target.value); setPage(1); }}
-                        className="bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-gray-500 outline-none"
+                        className="bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-gray-500 outline-none w-full sm:w-auto"
                     >
                         <option value="">Todos os Status</option>
                         <option value="received">Recebidos</option>
@@ -501,6 +613,34 @@ const ManifestationList: React.FC = () => {
                         <option value="resolved">Resolvidos</option>
                         <option value="archived">Arquivados</option>
                     </select>
+
+                    <select
+                        value={filterType}
+                        onChange={(e) => { setFilterType(e.target.value); setPage(1); }}
+                        className="bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-gray-500 outline-none w-full sm:w-auto"
+                    >
+                        <option value="">Todos os Tipos</option>
+                        <option value="Denúncia">Denúncia</option>
+                        <option value="Reclamação">Reclamação</option>
+                        <option value="Sugestão">Sugestão</option>
+                        <option value="Elogio">Elogio</option>
+                        <option value="Informação">Informação</option>
+                    </select>
+
+                    <div className="relative w-full sm:w-auto">
+                        {filterPublic === 'public' ? <Globe className="absolute left-3 top-2.5 text-blue-500 w-4 h-4" /> :
+                            filterPublic === 'private' ? <Lock className="absolute left-3 top-2.5 text-gray-400 w-4 h-4" /> :
+                                <Eye className="absolute left-3 top-2.5 text-gray-400 w-4 h-4" />}
+                        <select
+                            value={filterPublic}
+                            onChange={(e) => setFilterPublic(e.target.value)}
+                            className="pl-9 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-300 text-sm outline-none appearance-none cursor-pointer w-full sm:min-w-[140px]"
+                        >
+                            <option value="all">Visibilidade</option>
+                            <option value="public">Públicas</option>
+                            <option value="private">Privadas</option>
+                        </select>
+                    </div>
                 </div>
             </div>
 
@@ -514,6 +654,7 @@ const ManifestationList: React.FC = () => {
                                 <th className="p-4 border-b dark:border-gray-700 w-1/3">Descrição</th>
                                 <th className="p-4 border-b dark:border-gray-700">Identificação</th>
                                 <th className="p-4 border-b dark:border-gray-700">Data</th>
+                                <th className="p-4 border-b dark:border-gray-700 text-center">Visibilidade</th>
                                 <th className="p-4 border-b dark:border-gray-700 text-center">Status</th>
                                 <th className="p-4 border-b dark:border-gray-700 text-right">Ações</th>
                             </tr>
@@ -521,7 +662,7 @@ const ManifestationList: React.FC = () => {
                         <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
                             {loading ? (
                                 <tr>
-                                    <td colSpan={7} className="p-8 text-center">
+                                    <td colSpan={8} className="p-8 text-center">
                                         <Loader2 className="w-8 h-8 animate-spin mx-auto text-gray-600" />
                                     </td>
                                 </tr>
@@ -544,6 +685,17 @@ const ManifestationList: React.FC = () => {
                                                     )}
                                                 </td>
                                                 <td className="p-4 text-xs tabular-nums">{new Date(m.created_at).toLocaleDateString('pt-BR')}</td>
+                                                <td className="p-4 text-center">
+                                                    {m.is_public ? (
+                                                        <div className="inline-flex items-center justify-center p-1.5 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400" title="Público">
+                                                            <Globe className="w-4 h-4" />
+                                                        </div>
+                                                    ) : (
+                                                        <div className="inline-flex items-center justify-center p-1.5 rounded-full bg-gray-100 dark:bg-gray-700 text-gray-400 dark:text-gray-400" title="Privado">
+                                                            <Lock className="w-4 h-4" />
+                                                        </div>
+                                                    )}
+                                                </td>
                                                 <td className="p-4 text-center">{getStatusBadge(m.status)}</td>
                                                 <td className="p-4 text-right">
                                                     <div className="flex justify-end gap-1">
@@ -577,7 +729,7 @@ const ManifestationList: React.FC = () => {
                                         ))
                                     ) : (
                                         <tr>
-                                            <td colSpan={7} className="p-8 text-center text-gray-400">
+                                            <td colSpan={8} className="p-8 text-center text-gray-400">
                                                 Nenhuma manifestação encontrada.
                                             </td>
                                         </tr>
@@ -606,7 +758,7 @@ const ManifestationList: React.FC = () => {
                     </button>
                 </div>
             </div>
-        </div>
+        </div >
     );
 };
 

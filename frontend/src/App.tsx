@@ -1,12 +1,13 @@
 
 import { BrowserRouter, Routes, Route, Navigate, useParams, useNavigate, Link } from 'react-router-dom';
-import { Search } from 'lucide-react';
+import { Search, Globe } from 'lucide-react';
 import Navbar from './components/Navbar';
 import AccessibilityMenu from './components/AccessibilityMenu';
 import ManifestationForm from './components/ManifestationForm';
 import SuccessPage from './components/SuccessPage';
 import AdminLogin from './pages/AdminLogin';
 import ProtocolsPage from './pages/ProtocolsPage';
+import PublicManifestationsPage from './pages/PublicManifestationsPage';
 import DashboardLayout from './layouts/DashboardLayout';
 import DashboardHome from './pages/dashboard/DashboardHome';
 import ManifestationList from './pages/dashboard/ManifestationList';
@@ -110,13 +111,20 @@ function App() {
                 <main className="container mx-auto px-4 py-8">
                   <div className="max-w-4xl mx-auto">
                     {/* Consultar Protocolo Button - Top */}
-                    <div className="mb-6">
+                    <div className="mb-6 flex gap-4 justify-center">
                       <Link
                         to="/protocolos"
                         className="inline-flex items-center gap-2 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 px-4 py-2 rounded-lg border border-gray-200 dark:border-gray-700 transition-colors font-medium text-sm"
                       >
                         <Search className="w-4 h-4" />
                         Consultar Protocolo
+                      </Link>
+                      <Link
+                        to="/publicas"
+                        className="inline-flex items-center gap-2 bg-blue-50 dark:bg-blue-900/20 hover:bg-blue-100 dark:hover:bg-blue-900/30 text-blue-700 dark:text-blue-300 px-4 py-2 rounded-lg border border-blue-200 dark:border-blue-800 transition-colors font-medium text-sm"
+                      >
+                        <Globe className="w-4 h-4" />
+                        Ver Manifestações Públicas
                       </Link>
                     </div>
 
@@ -134,6 +142,10 @@ function App() {
 
                     <div className="grid gap-8">
                       <div id="manifest-form" className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-6 md:p-8 ring-1 ring-gray-100 dark:ring-gray-700">
+                        <h2 className="text-2xl font-bold text-gray-800 dark:text-white mb-6 flex items-center gap-2 border-b pb-4 border-gray-100 dark:border-gray-700">
+                          <span className="bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-300 w-8 h-8 rounded-full flex items-center justify-center text-sm">1</span>
+                          Nova Manifestação
+                        </h2>
                         <ManifestationForm onSuccess={(protocol) => window.location.href = `/success/${protocol}`} />
                       </div>
                     </div>
@@ -142,6 +154,7 @@ function App() {
               </>
             } />
             <Route path="/protocolos" element={<ProtocolsPage />} />
+            <Route path="/publicas" element={<PublicManifestationsPage />} />
             <Route path="/success/:protocol" element={<SuccessPageWrapper />} />
 
             {/* Admin Routes */}

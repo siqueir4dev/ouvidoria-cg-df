@@ -86,6 +86,11 @@ export const initDB = async () => {
         await addColumnSafe("ALTER TABLE manifestations ADD COLUMN name VARCHAR(255) NULL");
         await addColumnSafe("ALTER TABLE manifestations ADD COLUMN cpf VARCHAR(20) NULL");
 
+        // PII and Public Visibility / Editing features
+        await addColumnSafe("ALTER TABLE manifestations ADD COLUMN is_public BOOLEAN DEFAULT FALSE");
+        await addColumnSafe("ALTER TABLE manifestations ADD COLUMN original_text TEXT NULL");
+        await addColumnSafe("ALTER TABLE manifestations ADD COLUMN was_edited BOOLEAN DEFAULT FALSE");
+
     } catch (error) {
         console.error('Error initializing database:', error);
     }

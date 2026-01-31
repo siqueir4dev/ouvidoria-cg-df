@@ -12,6 +12,9 @@ interface AnalysisResult {
     suggestedType: string;
     matches: boolean;
     reasoning: string;
+    hasPii?: boolean;
+    piiConfidence?: string;
+    piiAnalysis?: string;
 }
 
 /**
@@ -37,8 +40,15 @@ const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
  */
 export const analyzeManifestation = async (text: string, userType: string): Promise<AnalysisResult> => {
     // Otimização: Pula a análise para textos muito curtos para economizar tokens e reduzir latência.
-    if (text.length < 10) {
-        return { originalType: userType, suggestedType: userType, matches: true, reasoning: 'Texto muito curto.' };
+    if (text.length < 5) {
+        return {
+            originalType: userType,
+            suggestedType: userType,
+            matches: true,
+            reasoning: 'Texto muito curto.',
+            hasPii: false,
+            piiConfidence: 'low'
+        };
     }
 
     const validTypes = ['Denúncia', 'Reclamação', 'Sugestão', 'Elogio', 'Informação'];
@@ -46,28 +56,34 @@ export const analyzeManifestation = async (text: string, userType: string): Prom
     /**
      * Engenharia de Prompt:
      * - Persona: Define a IA como "IZA", a IA da Ouvidoria.
-     * - Tarefa: Classificar o texto em um dos tipos válidos.
+     * - Tarefa: 
+     *      1. Classificar o texto em um dos tipos válidos.
+     *      2. DETECTAR DADOS PESSOAIS (PII) que possam identificar uma pessoa.
      * - Restrições: A saída DEVE ser um JSON estrito para garantir a análise programática.
      */
     const prompt = `
     Você é a IZA, a inteligência artificial da Ouvidoria do DF.
-    Sua missão é classificar corretamente as manifestações dos cidadãos.
+    Sua missão é classificar as manifestações e proteger a privacidade dos cidadãos.
     
-    Analise o seguinte relato de um cidadão e identifique qual a categoria mais adequada para ele.
-    NÃO seja influenciada por escolhas anteriores.
+    Analise o seguinte relato:
+    "${text}"
     
-    Relato: "${text}"
+    Tarefas:
+    1. Classifique em: ${validTypes.join(', ')}.
+    2. Verifique se há DADOS PESSOAIS identificáveis no texto (ex: Nome completo, CPF, Telefone, Email, Endereço residencial preciso, Placa de carro vinculada a pessoa). 
+       - Mentions to public figures (Gov, Admin) or generic places do NOT count as PII.
+       - Self-identification ("Eu sou João") COUNTS as PII.
     
-    Tipos Válidos: ${validTypes.join(', ')}.
-    
-    Responda APENAS um JSON no seguinte formato (sem markdown):
+    Responda APENAS um JSON:
     {
-        "suggestedType": "Tipo Correto Aqui",
-        "reasoning": "Breve explicação do porquê (max 1 frase) falando diretamente com o cidadão."
+        "suggestedType": "Tipo",
+        "reasoning": "Explicação breve.",
+        "hasPii": true/false,
+        "piiAnalysis": "O que foi encontrado (sem repetir o dado) ou 'Nenhum dado pessoal encontrado'."
     }
     `;
 
-    const maxRetries = 10;
+    const maxRetries = 5;
     let attempt = 0;
 
     // Loop de Tentativa para Robustez
@@ -80,65 +96,57 @@ export const analyzeManifestation = async (text: string, userType: string): Prom
             const response = await result.response;
             const textResponse = response.text();
 
-            // Sanitizar Resposta: Remove possíveis blocos de código markdown (```json ... ```)
+            // Sanitizar Resposta
             const jsonStr = textResponse.replace(/^```json/, '').replace(/```$/, '').trim();
             const data = JSON.parse(jsonStr);
 
             const suggestedType = data.suggestedType;
-            const matches = suggestedType.toLowerCase() === userType.toLowerCase();
+            const matches = suggestedType?.toLowerCase() === userType.toLowerCase();
 
-            console.log(`IZA AI: Sucesso na tentativa ${attempt}!`);
+            console.log(`IZA AI: Sucesso! Tipo: ${suggestedType}, PII: ${data.hasPii}`);
 
             return {
                 originalType: userType,
-                suggestedType,
+                suggestedType: suggestedType || userType,
                 matches,
-                reasoning: data.reasoning
+                reasoning: data.reasoning || '',
+                hasPii: !!data.hasPii,
+                piiConfidence: 'high'
             };
 
         } catch (error: any) {
-            // Estratégia de Tratamento de Erro: Verifica por Limites de Taxa (429)
-            const isRateLimitError = error?.status === 429 || error?.message?.includes('429') || error?.message?.includes('quota');
+            // ... (Mesma lógica de retry anterior)
+            const isRateLimitError = error?.status === 429 || error?.message?.includes('429');
 
             if (isRateLimitError && attempt < maxRetries) {
-                // Backoff Inteligente: Usa o cabeçalho 'Retry-After' se fornecido, caso contrário, padrão de 60s
-                let waitTime = 60000; // Caminho base padrão de 60 segundos
-
-                if (error?.errorDetails) {
-                    const retryInfo = error.errorDetails.find((d: any) => d['@type']?.includes('RetryInfo'));
-                    if (retryInfo?.retryDelay) {
-                        const seconds = parseInt(retryInfo.retryDelay.replace('s', ''));
-                        if (!isNaN(seconds)) {
-                            waitTime = (seconds + 5) * 1000; // Add 5 seconds buffer
-                        }
-                    }
-                }
-
-                console.log(`IZA AI: Limite de cota atingido. Aguardando ${Math.round(waitTime / 1000)}s antes de tentar novamente...`);
+                let waitTime = 10000; // Reduzido para testar mais rápido, idealmente backoff
+                console.log(`IZA AI: Rate Limit. Aguardando ${waitTime}ms...`);
                 await delay(waitTime);
                 continue;
             }
 
             console.error('IZA AI Error:', error?.message || error);
 
-            // Falha graciosamente apenas após esgotar todas as tentativas
             if (attempt >= maxRetries) {
-                console.error('IZA AI: Todas as tentativas falharam.');
+                // Fallback seguro: Assume que TEM PII se falhar, para evitar vazamento acidental
                 return {
                     originalType: userType,
-                    suggestedType: userType, // Fallback to user's original choice
+                    suggestedType: userType,
                     matches: true,
-                    reasoning: 'Erro na análise IA após múltiplas tentativas.'
+                    reasoning: 'Erro na análise IA.',
+                    hasPii: true, // Fail safe
+                    piiConfidence: 'failed'
                 };
             }
         }
     }
 
-    // Código de Fallback (Código inalcançável sob lógica normal, mas seguro para tipos)
     return {
         originalType: userType,
         suggestedType: userType,
         matches: true,
-        reasoning: 'Erro inesperado na análise IA.'
+        reasoning: 'Erro inesperado.',
+        hasPii: true,
+        piiConfidence: 'failed'
     };
 };

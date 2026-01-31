@@ -12,6 +12,9 @@ export interface AuthRequest extends FastifyRequest {
 }
 
 export const authenticateToken = async (request: FastifyRequest, reply: FastifyReply) => {
+    // Skip auth for Preflight/OPTIONS requests
+    if (request.method === 'OPTIONS') return;
+
     try {
         const authHeader = request.headers['authorization'];
         const token = authHeader && authHeader.split(' ')[1]; // Bearer TOKEN

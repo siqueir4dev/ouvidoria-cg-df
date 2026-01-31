@@ -24,7 +24,7 @@ export async function manifestRoutes(fastify: FastifyInstance) {
      */
     fastify.post('/manifestations', async (request, reply) => {
         // 'request.parts()' retorna um iterador assíncrono para processar campos multipart sequencialmente.
-        const parts = request.parts();
+        const parts = (request as any).parts();
 
         const body: any = {
             imageCount: 0,
@@ -85,12 +85,36 @@ export async function manifestRoutes(fastify: FastifyInstance) {
                 };
             }
 
+            // --- AI PII ANALYSIS FOR PERSISTENCE ---
+            // Even if not requested explicitly, we run the analysis to determine privacy.
+            // Note: In a high-traffic production scenario, we might offload this to a background job.
+            // For this MVP, we await it to set the flag immediately.
+            let isPublic = false;
+            let aiAnalysis = null;
+
+            try {
+                aiAnalysis = await analyzeManifestation(body.text, body.type || 'Informação');
+                // Rule: It is public ONLY IF:
+                // 1. User wants to be Anonymous (isAnonymous == true)
+                // 2. AI did NOT find PII (hasPii == false)
+                // 3. User didn't flag some other restriction (implied by isAnonymous)
+                if (body.isAnonymous === true || body.isAnonymous === 'true') {
+                    if (aiAnalysis && aiAnalysis.hasPii === false) {
+                        isPublic = true;
+                    }
+                }
+            } catch (e) {
+                console.error('Failed to run AI analysis for persistence:', e);
+                // Fail safe: stays private
+            }
+            // ---------------------------------------
+
             const protocol = `DF-2026-${Math.floor(Math.random() * 1000000)}`;
 
             // Insere Manifestação (Suporta Anônimo e Identificado)
             const [result] = await pool.query<ResultSetHeader>(
-                `INSERT INTO manifestations (protocol, text, type, is_anonymous, has_audio, image_count, has_video, status, latitude, longitude, name, cpf) 
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                `INSERT INTO manifestations (protocol, text, type, is_anonymous, has_audio, image_count, has_video, status, latitude, longitude, name, cpf, is_public, original_text, was_edited) 
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
                 [
                     protocol,
                     body.text || '',
@@ -103,7 +127,10 @@ export async function manifestRoutes(fastify: FastifyInstance) {
                     body.latitude || null,
                     body.longitude || null,
                     body.isAnonymous === true ? null : (body.name || null),
-                    body.isAnonymous === true ? null : (body.cpf || null)
+                    body.isAnonymous === true ? null : (body.cpf || null),
+                    isPublic ? 1 : 0,
+                    null, // original_text starts null
+                    0 // was_edited starts false
                 ]
             );
 
@@ -175,5 +202,26 @@ export async function manifestRoutes(fastify: FastifyInstance) {
 
     fastify.get('/status', async () => {
         return { status: 'online', service: 'Participa DF API (MySQL + Attachments)' };
+    });
+
+    /**
+     * GET /manifestations/public
+     * Returns a list of public manifestations for the homepage/feed.
+     * Filtered by is_public = 1.
+     */
+    fastify.get('/manifestations/public', async (request, reply) => {
+        try {
+            const [rows] = await pool.query<RowDataPacket[]>(
+                `SELECT id, text, type, created_at, was_edited 
+                 FROM manifestations 
+                 WHERE is_public = 1 
+                 ORDER BY created_at DESC 
+                 LIMIT 20`
+            );
+            return rows;
+        } catch (error) {
+            console.error('Erro ao buscar manifestações públicas:', error);
+            reply.code(500).send({ error: 'Erro ao buscar dados.' });
+        }
     });
 }

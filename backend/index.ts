@@ -15,6 +15,7 @@ server.register(require('@fastify/cookie'));
 
 server.register(cors, {
     origin: '*',
+    methods: ['GET', 'PUT', 'POST', 'DELETE', 'OPTIONS', 'PATCH'],
 });
 
 import authRoutes from './routes/auth';
