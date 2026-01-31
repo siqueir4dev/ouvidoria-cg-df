@@ -7,7 +7,7 @@ O **Participa DF Mobile** é uma aplicação Web Progressiva (PWA) desenvolvida 
 ## 📺 Apresentação e Demonstração
 
 *   **Vídeo de Apresentação**: [Assistir no YouTube](https://youtu.be/wpTeMWFNZmQ)
-*   **Slide de Apresentação (PDF)**: [Baixar no Google Drive](https://drive.google.com/file/d/1nyav7CL0UXRtGek5JLUW5nFjqgm8YkG0/view?usp=sharing)
+*   **Vídeo de Apresentação**: [Baixar no Google Drive](https://drive.google.com/file/d/1nyav7CL0UXRtGek5JLUW5nFjqgm8YkG0/view?usp=sharing)
 
 
 ## 🚀 Funcionalidades Principais
